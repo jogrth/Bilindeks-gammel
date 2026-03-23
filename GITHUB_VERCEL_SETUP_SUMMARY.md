@@ -1,416 +1,251 @@
-# 🚀 Bilindeks - GitHub & Vercel Setup Summary
+# Bilindeks - Complete GitHub & Vercel Deployment Guide
 
-Complete guide to move Bilindeks to Git-based workflow with production deployments.
+## Quick Reference
 
-## 📚 Documentation Index
+**Start Here:** [DEPLOYMENT_STEPS_FOR_OWNER.md](DEPLOYMENT_STEPS_FOR_OWNER.md) - Step-by-step instructions
 
-Your project now includes comprehensive documentation:
+**Framework Status:** To be determined from your Bolt.new codebase
+**Supabase Status:** ✅ Fully configured and ready
+**Edge Functions:** ✅ All 7 deployed and active
+**Edge Secrets:** ✅ All configured (RESEND, VEGVESEN)
 
-1. **CRITICAL_CHANGES_NEEDED.md** - 🔴 START HERE
-   - Issues that MUST be fixed before pushing to GitHub
-   - Code audit commands
-   - Deployment blockers
+## What's Already Done
 
-2. **REPO_READINESS_CHECKLIST.md**
-   - Step-by-step checklist for repository preparation
-   - Security verification steps
-   - Pre-push validation
+### Supabase Backend (100% Complete)
+- ✅ Database with 11 tables
+  - brands, models, model_overrides, similar_models
+  - dealers, model_dealers
+  - leads, lead_deliveries
+  - profiles, system_admins
+  - ingestion_jobs
+- ✅ Row Level Security enabled on all tables
+- ✅ 1 admin user configured in system_admins
+- ✅ All RLS policies active
 
-3. **ENV_VARIABLES.md**
-   - Complete environment variable reference
-   - Framework-specific configuration (Vite vs Next.js)
-   - Edge Function secrets management
+### Edge Functions (100% Complete)
+- ✅ `submit-lead` - Public lead submission (JWT: OFF)
+- ✅ `send-lead-email` - Email notifications (JWT: OFF)
+- ✅ `verify-admin` - Admin verification (JWT: ON)
+- ✅ `lookup-vehicle` - Vehicle data from Vegvesen (JWT: ON)
+- ✅ `run-ingestion-job` - Data ingestion (JWT: ON)
+- ✅ `publish-model` - Model publishing (JWT: ON)
+- ✅ `cron-refresh-models` - Scheduled updates (JWT: ON)
 
-4. **DEPLOYMENT.md**
-   - Vercel deployment instructions
-   - DNS configuration
-   - Branch strategy
-   - Rollback procedures
+### Edge Function Secrets (100% Complete)
+- ✅ `RESEND_API_KEY` - Configured
+- ✅ `RESEND_FROM_EMAIL` - Configured
+- ✅ `VEGVESEN_API_KEY` - Configured
+- ✅ Auto-provided Supabase variables (URL, keys, DB URL)
 
-5. **.env.example**
-   - Template for environment variables
-   - Safe to commit to repository
+### Documentation (100% Complete)
+- ✅ Deployment steps guide
+- ✅ Environment variables checklist
+- ✅ Security configurations
+- ✅ Git workflow documentation
 
-6. **.gitignore**
-   - Prevents sensitive files from being committed
-   - Framework-specific exclusions
+## What You Must Do
 
-## 🎯 Quick Start - 5 Steps to Deployment
+### Phase 1: Bolt.new Code Preparation (30 min)
 
-### Step 1: Fix Critical Issues (30 minutes)
+**Location:** Your Bolt.new project
 
-Read and complete: **CRITICAL_CHANGES_NEEDED.md**
+**Actions:**
+1. Identify if using Next.js or Vite
+2. Search for hardcoded secrets and remove them
+3. Verify Supabase client uses environment variables
+4. Test `npm run build` succeeds
+5. Export entire project as zip
 
-Key tasks:
-- Verify framework (Vite or Next.js)
-- Check environment variable prefix
-- Audit code for hardcoded secrets
-- Ensure Supabase client uses env variables
+**Details:** See [DEPLOYMENT_STEPS_FOR_OWNER.md](DEPLOYMENT_STEPS_FOR_OWNER.md) Phase 1
 
-### Step 2: Repository Preparation (15 minutes)
+### Phase 2: GitHub Repository (10 min)
 
-Follow: **REPO_READINESS_CHECKLIST.md**
+**Location:** GitHub.com
 
-Key tasks:
-- Verify `.gitignore` working
-- Run security audits
-- Test build locally
-- Verify all files present
+**Actions:**
+1. Create new repository `bilindeks`
+2. Initialize Git in exported code
+3. **CRITICAL:** Verify .env is NOT committed
+4. Push main and dev branches
 
-### Step 3: Push to GitHub (10 minutes)
+**Details:** See [DEPLOYMENT_STEPS_FOR_OWNER.md](DEPLOYMENT_STEPS_FOR_OWNER.md) Phase 2
 
+### Phase 3: Vercel Deployment (15 min)
+
+**Location:** Vercel.com
+
+**Actions:**
+1. Import GitHub repository
+2. Configure build settings (auto-detected)
+3. Add environment variables (see below)
+4. Deploy
+
+**Environment Variables to Add:**
 ```bash
-# Initialize git
-git init
+# If Next.js:
+NEXT_PUBLIC_SUPABASE_URL=https://uypsxxmprmqjjcvzhshu.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5cHN4eG1wcm1xampjdnpoc2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MDg2MzUsImV4cCI6MjA4OTE4NDYzNX0.4P4Qs83D35dqv2JN8Wauv8VrjDx4ZmzD5uNe5_k-D4k
 
-# Add files
-git add .
-
-# VERIFY .env is NOT staged
-git status | grep "\.env$"
-# Should only show .env.example
-
-# First commit
-git commit -m "Initial commit: Bilindeks production ready"
-
-# Create dev branch
-git checkout -b dev
-
-# Connect to GitHub
-git remote add origin https://github.com/yourusername/bilindeks.git
-
-# Push both branches
-git push -u origin main
-git push -u origin dev
-```
-
-### Step 4: Configure Vercel (20 minutes)
-
-1. **Connect Repository**
-   - Go to https://vercel.com/new
-   - Import GitHub repository
-   - Select bilindeks repository
-
-2. **Configure Build Settings**
-   - Framework: Auto-detected (Next.js or Vite)
-   - Build Command: `npm run build`
-   - Output Directory: `.next` or `dist`
-
-3. **Add Environment Variables**
-   - Go to Project Settings → Environment Variables
-   - Add from ENV_VARIABLES.md:
-     - `VITE_SUPABASE_URL` (or `NEXT_PUBLIC_*`)
-     - `VITE_SUPABASE_ANON_KEY` (or `NEXT_PUBLIC_*`)
-   - Set for: Production & Preview
-
-4. **Configure Domains**
-   - Add `bilindeks.no` → main branch
-   - Add `dev.bilindeks.no` → dev branch
-
-### Step 5: Deploy (5 minutes)
-
-Vercel automatically deploys on push:
-- Push to `main` → bilindeks.no updates
-- Push to `dev` → dev.bilindeks.no updates
-
-## 🌳 Branch Strategy
-
-```
-main (production)
-├── bilindeks.no
-└── Protected branch
-
-dev (development)
-├── dev.bilindeks.no
-└── Default development branch
-
-feature/* (feature branches)
-└── Merge to dev via PR
-```
-
-### Workflow
-
-**Daily Development:**
-```bash
-git checkout dev
-git pull origin dev
-git checkout -b feature/your-feature
-# Make changes
-git add .
-git commit -m "Description"
-git push origin feature/your-feature
-# Create PR to dev branch
-```
-
-**Production Release:**
-```bash
-# After testing on dev.bilindeks.no
-git checkout main
-git merge dev
-git push origin main
-# bilindeks.no updates automatically
-```
-
-## 🔐 Environment Variables
-
-### Required for All Environments
-
-#### For Vite Projects:
-```bash
+# If Vite:
 VITE_SUPABASE_URL=https://uypsxxmprmqjjcvzhshu.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5cHN4eG1wcm1xampjdnpoc2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MDg2MzUsImV4cCI6MjA4OTE4NDYzNX0.4P4Qs83D35dqv2JN8Wauv8VrjDx4ZmzD5uNe5_k-D4k
 ```
 
-#### For Next.js Projects:
+Set for both "Production" and "Preview" environments.
+
+**Details:** See [DEPLOYMENT_STEPS_FOR_OWNER.md](DEPLOYMENT_STEPS_FOR_OWNER.md) Phase 3
+
+### Phase 4: DNS Configuration (20 min)
+
+**Location:** Your domain registrar
+
+**Actions:**
+Add these DNS records:
+
+```
+# Production
+Type: A, Name: @, Value: 76.76.21.21
+
+# WWW redirect
+Type: CNAME, Name: www, Value: cname.vercel-dns.com
+
+# Development
+Type: CNAME, Name: dev, Value: cname.vercel-dns.com
+```
+
+**Note:** DNS takes 24-48 hours to propagate
+
+**Details:** See [DEPLOYMENT_STEPS_FOR_OWNER.md](DEPLOYMENT_STEPS_FOR_OWNER.md) Phase 4
+
+## Branch Strategy
+
+```
+main branch → bilindeks.no (production)
+dev branch → dev.bilindeks.no (staging)
+feature/* → merge to dev via PR
+```
+
+## Critical Pre-Deployment Checks
+
+Run these in your Bolt.new project:
+
+### 1. Check Framework
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://uypsxxmprmqjjcvzhshu.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5cHN4eG1wcm1xampjdnpoc2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MDg2MzUsImV4cCI6MjA4OTE4NDYzNX0.4P4Qs83D35dqv2JN8Wauv8VrjDx4ZmzD5uNe5_k-D4k
+ls next.config.* && echo "Next.js" || ls vite.config.* && echo "Vite"
 ```
 
-**Where to Configure:**
-
-**Local Development:**
-- Add to `.env` file (already exists)
-- Never commit this file
-
-**Vercel (Production & Dev):**
-- Project Settings → Environment Variables
-- Add for both "Production" and "Preview" environments
-- Assign to correct branches
-
-**Edge Functions:**
-- Automatically configured by Supabase
-- For custom secrets: Supabase Dashboard → Edge Functions → Environment Variables
-
-Full reference: **ENV_VARIABLES.md**
-
-## 🌐 Domain Setup
-
-### Production: bilindeks.no
-
-**DNS Configuration:**
-```
-Type: A
-Name: @
-Value: 76.76.21.21
-
-Type: CNAME
-Name: www
-Value: cname.vercel-dns.com
-```
-
-**Vercel Configuration:**
-- Domain: `bilindeks.no`
-- Branch: `main`
-- Redirect: `www.bilindeks.no` → `bilindeks.no`
-
-### Development: dev.bilindeks.no
-
-**DNS Configuration:**
-```
-Type: CNAME
-Name: dev
-Value: cname.vercel-dns.com
-```
-
-**Vercel Configuration:**
-- Domain: `dev.bilindeks.no`
-- Branch: `dev`
-
-**Note:** DNS propagation takes 24-48 hours. Check Vercel dashboard for exact DNS values.
-
-## 📦 Supabase Configuration
-
-### Database
-- ✅ Migrations applied
-- ✅ RLS enabled on all tables
-- ✅ Security policies optimized
-- ✅ Admin users configured
-
-### Edge Functions Deployed
-1. `verify-admin` - Admin authentication
-2. `lookup-vehicle` - Vehicle data lookup
-3. `submit-lead` - Lead form submission
-4. `send-lead-email` - Email notifications
-5. `run-ingestion-job` - Data ingestion
-6. `publish-model` - Model publishing
-7. `cron-refresh-models` - Scheduled model refresh
-
-**All functions:**
-- Have proper CORS headers
-- Use environment variables
-- Include error handling
-
-### Environment Variables (Auto-configured)
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `SUPABASE_DB_URL`
-
-**Custom secrets:** Configure in Supabase Dashboard if needed
-
-## ✅ Pre-Deployment Checklist
-
-### Code Quality
-- [ ] No hardcoded secrets
-- [ ] All env variables use correct prefix
-- [ ] `.env` in `.gitignore`
-- [ ] `npm run build` succeeds
-- [ ] TypeScript compiles: `npx tsc --noEmit`
-
-### Security
-- [ ] RLS enabled on all tables
-- [ ] Admin verification working
-- [ ] No service role key in frontend
-- [ ] CORS properly configured
-
-### Testing
-- [ ] Login/logout works
-- [ ] Admin panel accessible
-- [ ] Public pages load
-- [ ] Edge Functions respond
-- [ ] Mobile responsive
-
-### Repository
-- [ ] `.gitignore` configured
-- [ ] `.env.example` complete
-- [ ] Documentation complete
-- [ ] Dependencies in `package.json`
-
-### Deployment
-- [ ] Vercel account ready
-- [ ] Domain DNS access
-- [ ] Environment variables prepared
-- [ ] Branches configured (main, dev)
-
-## 🚨 Common Pitfalls
-
-### ❌ Don't:
-1. Commit `.env` file
-2. Hardcode secrets in code
-3. Use `NEXT_PUBLIC_*` with Vite (or vice versa)
-4. Push to main without testing on dev
-5. Skip environment variable configuration in Vercel
-6. Forget to configure both Production and Preview environments
-
-### ✅ Do:
-1. Use environment variables for all secrets
-2. Test locally before pushing
-3. Use correct variable prefix for your framework
-4. Deploy to dev first, then promote to production
-5. Configure all environment variables in Vercel
-6. Keep `.env.example` updated
-
-## 🆘 Troubleshooting
-
-### Build Fails on Vercel
-1. Check Vercel build logs
-2. Run `npm run build` locally
-3. Verify environment variables set
-4. Check for missing dependencies
-
-### Environment Variables Not Working
-1. Verify correct prefix (VITE_ or NEXT_PUBLIC_)
-2. Redeploy after adding variables
-3. Check assigned to correct environment
-4. Restart dev server locally
-
-### Can't Connect to Supabase
-1. Verify env variables in Vercel
-2. Check Supabase project is active
-3. Verify RLS policies allow access
-4. Check browser console for errors
-
-### Domain Not Resolving
-1. Wait 24-48 hours for DNS
-2. Verify DNS records match Vercel
-3. Check domain status in Vercel
-4. Clear DNS cache
-
-**Full troubleshooting:** See DEPLOYMENT.md
-
-## 📊 Post-Deployment Monitoring
-
-### Vercel
-- Deployments → View logs
-- Analytics → Monitor performance
-- Runtime Logs → Debug issues
-
-### Supabase
-- Edge Functions → View logs
-- Database → Query performance
-- Auth → Monitor logins
-
-## 🔄 Making Changes After Deployment
-
-### Quick Bug Fix
+### 2. Find Hardcoded Secrets
 ```bash
-git checkout dev
-git pull origin dev
-git checkout -b fix/issue-name
-# Fix bug
-git commit -m "Fix: issue description"
-git push origin fix/issue-name
-# Create PR to dev
-# Test on dev.bilindeks.no
-# After testing, merge dev to main
+grep -r "uypsxxmprmqjjcvzhshu" --include="*.ts" --include="*.tsx" .
+grep -r "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" --include="*.ts" --include="*.tsx" .
 ```
+**Expected:** Only matches in .env files, not source code
 
-### New Feature
+### 3. Verify .env is Excluded
 ```bash
-git checkout dev
-git pull origin dev
-git checkout -b feature/feature-name
-# Build feature
-git commit -m "Add: feature description"
-git push origin feature/feature-name
-# Create PR to dev
-# Test on dev.bilindeks.no
-# After testing, merge dev to main
+cat .gitignore | grep "\.env"
 ```
+**Expected:** Should show `.env` is ignored
 
-## 🎓 Learning Resources
+### 4. Test Build
+```bash
+npm run build
+```
+**Expected:** Build succeeds with no errors
 
-- [Vercel Documentation](https://vercel.com/docs)
-- [Supabase Documentation](https://supabase.com/docs)
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Vite Documentation](https://vitejs.dev/guide)
-- [Git Branching Strategy](https://git-scm.com/book/en/v2/Git-Branching-Branching-Workflows)
+## Environment Variables Reference
 
-## ✨ Success Criteria
+### Frontend App (Vercel)
+**Purpose:** Connect frontend to Supabase
+**Location:** Vercel Project Settings → Environment Variables
+**Format:** `NEXT_PUBLIC_*` (Next.js) or `VITE_*` (Vite)
+
+### Edge Functions (Supabase)
+**Purpose:** Backend services (email, vehicle lookup, etc.)
+**Location:** Already configured in Supabase
+**Status:** ✅ No action needed
+
+**Complete reference:** [ENVIRONMENT_VARIABLES_CHECKLIST.md](ENVIRONMENT_VARIABLES_CHECKLIST.md)
+
+## Files in This Package
+
+1. **DEPLOYMENT_STEPS_FOR_OWNER.md** ⭐ START HERE
+   - Complete step-by-step deployment guide
+   - Includes all commands to run
+   - Troubleshooting section
+
+2. **ENVIRONMENT_VARIABLES_CHECKLIST.md**
+   - All environment variables documented
+   - How to verify they're used correctly
+   - Framework-specific configurations
+
+3. **.env.example**
+   - Template for environment variables
+   - Safe to commit to Git
+
+4. **.gitignore**
+   - Excludes secrets and build artifacts
+   - Ready to use
+
+5. **GITHUB_VERCEL_SETUP_SUMMARY.md** (this file)
+   - Overview and quick reference
+
+## Estimated Timeline
+
+- Phase 1 (Bolt.new prep): 30 minutes
+- Phase 2 (GitHub): 10 minutes
+- Phase 3 (Vercel): 15 minutes
+- Phase 4 (DNS): 20 minutes setup, 24-48 hours propagation
+
+**Total active work:** ~75 minutes
+**Total time to live site:** 24-48 hours (DNS propagation)
+
+## Success Criteria
 
 Your deployment is successful when:
 
-- ✅ https://bilindeks.no loads correctly
-- ✅ https://dev.bilindeks.no loads correctly
-- ✅ Users can log in
-- ✅ Admin panel is accessible
-- ✅ Public pages display properly
-- ✅ Edge Functions respond correctly
-- ✅ No errors in Vercel logs
-- ✅ No errors in Supabase logs
-- ✅ Mobile responsive design works
+- ✅ https://bilindeks.no loads without errors
+- ✅ https://dev.bilindeks.no loads without errors
+- ✅ Login/logout works
+- ✅ Lead submission works (test on a vehicle page)
+- ✅ Admin panel accessible (for admin users)
+- ✅ No console errors in browser
+- ✅ No errors in Vercel deployment logs
 
-## 📞 Support
+## If Something Goes Wrong
 
-If you encounter issues:
+### Build Fails
+1. Check Vercel logs for specific error
+2. Run `npm run build` locally
+3. Fix errors and push again
 
-1. Review relevant documentation file
-2. Check troubleshooting sections
-3. Verify all checklist items complete
-4. Review Vercel and Supabase logs
-5. Test locally to isolate issue
+### Environment Variables Not Working
+1. Verify correct prefix (NEXT_PUBLIC_ or VITE_)
+2. Check set for both Production and Preview
+3. Redeploy after adding
 
----
+### Lead Submission Fails
+1. Check browser console
+2. Check Supabase Edge Function logs
+3. Verify RESEND_API_KEY configured (already done)
 
-## 🎯 Your Action Plan
+**Full troubleshooting:** [DEPLOYMENT_STEPS_FOR_OWNER.md](DEPLOYMENT_STEPS_FOR_OWNER.md)
 
-1. **Now:** Read CRITICAL_CHANGES_NEEDED.md
-2. **Next:** Complete REPO_READINESS_CHECKLIST.md
-3. **Then:** Push to GitHub
-4. **After:** Configure Vercel
-5. **Finally:** Deploy and test
+## Getting Help
 
-**Estimated Total Time:** 90 minutes from start to live production site
+- Vercel Docs: https://vercel.com/docs
+- Supabase Dashboard: https://supabase.com/dashboard/project/uypsxxmprmqjjcvzhshu
+- Edge Functions: https://supabase.com/dashboard/project/uypsxxmprmqjjcvzhshu/functions
+- Database: https://supabase.com/dashboard/project/uypsxxmprmqjjcvzhshu/editor
 
-**Good luck! 🚀**
+## What Doesn't Need Manual Deployment
+
+These are already live and working:
+
+- ✅ Supabase database
+- ✅ All 7 Edge Functions
+- ✅ Edge Function secrets
+- ✅ RLS policies
+- ✅ Admin authentication
+
+**You only need to deploy the frontend application to Vercel.**
