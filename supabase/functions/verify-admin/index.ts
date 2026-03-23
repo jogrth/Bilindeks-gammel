@@ -31,15 +31,20 @@ Deno.serve(async (req: Request) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    console.log("Creating Supabase client with service role");
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get user from JWT
+    // Get user from JWT using anon key (JWT was issued with anon key)
     const jwt = authHeader.replace("Bearer ", "");
     console.log("Getting user from JWT");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader
+        }
+      }
+    });
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
 
     if (userError) {
       console.error("User error:", userError);
@@ -67,7 +72,8 @@ Deno.serve(async (req: Request) => {
 
     // Check if user is admin using service role (bypasses RLS)
     console.log("Checking admin status for user:", user.id);
-    const { data: adminCheck, error: adminError } = await supabase
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: adminCheck, error: adminError } = await supabaseAdmin
       .from("system_admins")
       .select("is_active")
       .eq("user_id", user.id)

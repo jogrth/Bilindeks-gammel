@@ -20,20 +20,29 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      console.log('Attempting sign in...');
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (signInError) {
+        console.error('Sign in error:', signInError);
         setError('Feil e-post eller passord');
         setLoading(false);
         return;
       }
 
+      console.log('Sign in successful');
+      console.log('Session exists:', !!data.session);
+      console.log('Access token exists:', !!data.session?.access_token);
+      console.log('User ID:', data.user?.id);
+
       if (data.user && data.session) {
         // Verify admin status using Edge Function
         const verifyUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/verify-admin`;
+        console.log('Calling verify-admin at:', verifyUrl);
+        console.log('With token:', data.session.access_token.substring(0, 20) + '...');
 
         try {
           const verifyResponse = await fetch(verifyUrl, {
@@ -42,6 +51,8 @@ export default function LoginPage() {
               'Content-Type': 'application/json',
             },
           });
+
+          console.log('Verify response status:', verifyResponse.status);
 
           if (!verifyResponse.ok) {
             const errorText = await verifyResponse.text();
