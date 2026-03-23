@@ -16,6 +16,14 @@ export async function getPublishedModels(filters?: CarFilters) {
     .eq('published', true)
     .order('created_at', { ascending: false });
 
+  if (filters?.brandId) {
+    query = query.eq('brand_id', filters.brandId);
+  }
+
+  if (filters?.modelId) {
+    query = query.eq('id', filters.modelId);
+  }
+
   if (filters?.bodyType) {
     query = query.eq('body_type', filters.bodyType);
   }

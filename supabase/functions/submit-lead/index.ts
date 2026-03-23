@@ -128,6 +128,10 @@ Deno.serve(async (req: Request) => {
 
     console.log('[submit-lead] Fetching dealers for model:', payload.model_id);
 
+    // Parse user postcode for range matching
+    const userPostcodeNum = payload.postcode ? parseInt(payload.postcode.replace(/\s/g, ''), 10) : null;
+    console.log('[submit-lead] User postcode numeric:', userPostcodeNum);
+
     const { data: modelDealers, error: dealersError } = await supabase
       .from('model_dealers')
       .select(`
@@ -138,7 +142,10 @@ Deno.serve(async (req: Request) => {
           id,
           name,
           email,
-          active
+          active,
+          postcode_from,
+          postcode_to,
+          brand_preference
         )
       `)
       .eq('model_id', payload.model_id)
@@ -151,9 +158,25 @@ Deno.serve(async (req: Request) => {
       console.error('[submit-lead] Dealers fetch error:', dealersError);
     }
 
-    const activeDealers = (modelDealers || []).filter(
-      (md: any) => md.dealers && md.dealers.active
-    );
+    // Filter by active status and postcode range
+    const activeDealers = (modelDealers || []).filter((md: any) => {
+      if (!md.dealers || !md.dealers.active) return false;
+
+      // If dealer has postcode range set, check if user is in range
+      if (md.dealers.postcode_from && md.dealers.postcode_to && userPostcodeNum) {
+        const inRange = userPostcodeNum >= md.dealers.postcode_from &&
+                       userPostcodeNum <= md.dealers.postcode_to;
+        console.log(`[submit-lead] Dealer ${md.dealers.name} postcode check:`, {
+          dealer_range: `${md.dealers.postcode_from}-${md.dealers.postcode_to}`,
+          user_postcode: userPostcodeNum,
+          in_range: inRange
+        });
+        return inRange;
+      }
+
+      // If no postcode range set, include dealer (backward compatibility)
+      return true;
+    });
 
     console.log('[submit-lead] Active dealers count:', activeDealers.length);
 

@@ -1,22 +1,52 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { CarFilters } from '@/types';
 import { BODY_TYPES, DRIVETRAINS, DRIVE_TYPES } from '@/types';
 import { DualRangeSlider } from './ui/DualRangeSlider';
 import { SingleRangeSlider } from './ui/SingleRangeSlider';
 
+interface Brand {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface Model {
+  id: string;
+  name: string;
+  slug: string;
+  brand_id: string;
+}
+
 interface HomeFilterProps {
   filters: CarFilters;
   onFilterChange: (filters: CarFilters) => void;
+  brands?: Brand[];
+  models?: Model[];
 }
 
-export function HomeFilter({ filters, onFilterChange }: HomeFilterProps) {
+export function HomeFilter({ filters, onFilterChange, brands = [], models = [] }: HomeFilterProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [availableModels, setAvailableModels] = useState<Model[]>(models);
+
+  // Filter models when brand changes
+  useEffect(() => {
+    if (filters.brandId && models.length > 0) {
+      setAvailableModels(models.filter(m => m.brand_id === filters.brandId));
+    } else {
+      setAvailableModels(models);
+    }
+  }, [filters.brandId, models]);
 
   const handleChange = (key: keyof CarFilters, value: any) => {
-    onFilterChange({ ...filters, [key]: value || undefined });
+    // If brand changes, clear model filter
+    if (key === 'brandId' && value !== filters.brandId) {
+      onFilterChange({ ...filters, brandId: value || undefined, modelId: undefined });
+    } else {
+      onFilterChange({ ...filters, [key]: value || undefined });
+    }
   };
 
   const handlePriceChange = (min: number, max: number) => {
@@ -180,6 +210,39 @@ export function HomeFilter({ filters, onFilterChange }: HomeFilterProps) {
 
       {showAdvanced && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-5 border-t border-slate-700">
+          <div>
+            <label className="block text-sm font-medium text-slate-100 mb-2.5">
+              Merke
+            </label>
+            <select
+              value={filters.brandId || ''}
+              onChange={(e) => handleChange('brandId', e.target.value)}
+              className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+            >
+              <option value="">Alle merker</option>
+              {brands.map(brand => (
+                <option key={brand.id} value={brand.id}>{brand.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-100 mb-2.5">
+              Modell
+            </label>
+            <select
+              value={filters.modelId || ''}
+              onChange={(e) => handleChange('modelId', e.target.value)}
+              className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+              disabled={!!filters.brandId && availableModels.length === 0}
+            >
+              <option value="">Alle modeller</option>
+              {availableModels.map(model => (
+                <option key={model.id} value={model.id}>{model.name}</option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <SingleRangeSlider
               min={100}

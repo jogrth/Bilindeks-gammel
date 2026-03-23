@@ -9,9 +9,17 @@ import { HomeFilter } from '@/components/HomeFilter';
 import { ComparisonModal } from '@/components/ComparisonModal';
 import type { CarModel, CarFilters } from '@/types';
 
+interface Brand {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export default function HomePage() {
   const [popularModels, setPopularModels] = useState<CarModel[]>([]);
   const [filteredModels, setFilteredModels] = useState<CarModel[]>([]);
+  const [allModels, setAllModels] = useState<CarModel[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedModel, setSelectedModel] = useState<CarModel | null>(null);
   const [filters, setFilters] = useState<CarFilters>({});
   const [loading, setLoading] = useState(false);
@@ -19,11 +27,15 @@ export default function HomePage() {
   const [showComparison, setShowComparison] = useState(false);
 
   useEffect(() => {
-    fetch('/api/models')
-      .then(res => res.json())
-      .then(data => {
-        setPopularModels(data.slice(0, 6));
-        setFilteredModels(data);
+    Promise.all([
+      fetch('/api/models').then(res => res.json()),
+      fetch('/api/brands').then(res => res.json())
+    ])
+      .then(([modelsData, brandsData]) => {
+        setPopularModels(modelsData.slice(0, 6));
+        setFilteredModels(modelsData);
+        setAllModels(modelsData);
+        setBrands(brandsData || []);
       })
       .catch(console.error);
   }, []);
@@ -40,6 +52,8 @@ export default function HomePage() {
 
     setLoading(true);
     const params = new URLSearchParams();
+    if (filters.brandId) params.set('brandId', filters.brandId);
+    if (filters.modelId) params.set('modelId', filters.modelId);
     if (filters.bodyType) params.set('bodyType', filters.bodyType);
     if (filters.drivetrain) params.set('drivetrain', filters.drivetrain);
     if (filters.driveType) params.set('driveType', filters.driveType);
@@ -102,7 +116,12 @@ export default function HomePage() {
 
       <Container>
         <div className="py-8">
-          <HomeFilter filters={filters} onFilterChange={setFilters} />
+          <HomeFilter
+            filters={filters}
+            onFilterChange={setFilters}
+            brands={brands}
+            models={allModels}
+          />
         </div>
 
         <section className="pb-12">

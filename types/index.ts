@@ -57,10 +57,14 @@ export interface Dealer {
   email: string;
   phone: string | null;
   brand: string | null;
+  brand_preference: string | null;
   active: boolean;
   price_per_lead: number | null;
   postcode_area: string | null;
+  postcode_from: number | null;
+  postcode_to: number | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface ModelDealer {
@@ -137,6 +141,8 @@ export interface LeadFormData {
 }
 
 export interface CarFilters {
+  brandId?: string;
+  modelId?: string;
   bodyType?: string;
   drivetrain?: string;
   driveType?: string;
