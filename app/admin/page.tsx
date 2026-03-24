@@ -88,12 +88,6 @@ export default async function AdminDashboard() {
                 >
                   Se leads
                 </Link>
-                <Link
-                  href="/admin/jobs"
-                  className="block px-4 py-3 rounded-lg bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition"
-                >
-                  Se jobber
-                </Link>
               </div>
             </div>
 

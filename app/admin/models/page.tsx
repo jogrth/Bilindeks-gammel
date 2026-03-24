@@ -3,6 +3,7 @@ import { Container } from '@/components/ui/Container';
 import { requireAdmin } from '@/lib/auth/helpers';
 import { createClient } from '@/lib/supabase/server';
 import ModelsListClient from '@/components/admin/ModelsListClient';
+import ModelsPageClient from '@/components/admin/ModelsPageClient';
 
 export const metadata = {
   title: 'Admin - Modeller',
@@ -80,60 +81,20 @@ export default async function AdminModelsPage({
     .eq('status', 'needs_review');
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="bg-white border-b border-slate-200 py-8">
-        <Container>
-          <div className="flex items-center justify-between">
-            <div>
-              <Link
-                href="/admin"
-                className="text-sm text-sky-700 hover:text-sky-800 mb-2 inline-block"
-              >
-                ← Tilbake til dashboard
-              </Link>
-              <h1 className="text-3xl font-bold text-slate-900">Modeller</h1>
-              <p className="mt-2 text-slate-600">
-                Administrer bilmodeller, AI-forslag og publisering
-              </p>
-            </div>
-          </div>
-        </Container>
-      </div>
-
-      <Container>
-        <div className="py-8">
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <div className="text-sm font-medium text-slate-600">Totalt</div>
-              <div className="mt-2 text-3xl font-bold text-slate-900">{totalCount || 0}</div>
-            </div>
-            <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <div className="text-sm font-medium text-slate-600">Publisert</div>
-              <div className="mt-2 text-3xl font-bold text-green-600">{publishedCount || 0}</div>
-            </div>
-            <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <div className="text-sm font-medium text-slate-600">Utkast</div>
-              <div className="mt-2 text-3xl font-bold text-slate-600">{draftCount || 0}</div>
-            </div>
-            <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <div className="text-sm font-medium text-slate-600">Trenger gjennomgang</div>
-              <div className="mt-2 text-3xl font-bold text-amber-600">{needsReviewCount || 0}</div>
-            </div>
-          </div>
-
-          {/* Models list */}
-          <ModelsListClient
-            models={models || []}
-            brands={brands || []}
-            currentFilters={{
-              published: publishedFilter,
-              brand: brandFilter,
-              status: statusFilter,
-            }}
-          />
-        </div>
-      </Container>
-    </div>
+    <ModelsPageClient
+      models={models || []}
+      brands={brands || []}
+      currentFilters={{
+        published: publishedFilter,
+        brand: brandFilter,
+        status: statusFilter,
+      }}
+      stats={{
+        total: totalCount || 0,
+        published: publishedCount || 0,
+        draft: draftCount || 0,
+        needsReview: needsReviewCount || 0,
+      }}
+    />
   );
 }
