@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { enrichModel } from '@/lib/services/enrichment';
 
 interface ImportDetail {
   input: string;
   status: 'success' | 'error';
   message: string;
   model_id?: string;
+  enrichment_level?: string;
+  fields_populated?: string[];
 }
 
 function parseModelInput(input: string): { brandName: string; modelName: string } | null {
@@ -151,7 +154,7 @@ export async function POST(request: NextRequest) {
             brand_id,
             name: modelName,
             slug: modelSlug,
-            status: 'draft',
+            status: 'ingesting',
             published: false,
           })
           .select('id')
@@ -167,12 +170,22 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        const enrichmentResult = await enrichModel(newModel.id, modelSlug, brandName, modelName);
+
+        const finalStatus = enrichmentResult.enrichment_level === 'full' ? 'needs_review' : 'draft';
+        await supabase
+          .from('models')
+          .update({ status: finalStatus })
+          .eq('id', newModel.id);
+
         created++;
         details.push({
           input: line,
           status: 'success',
-          message: `Created successfully as draft`,
+          message: `Created with ${enrichmentResult.enrichment_level} enrichment (${enrichmentResult.fields_populated.length} fields)`,
           model_id: newModel.id,
+          enrichment_level: enrichmentResult.enrichment_level,
+          fields_populated: enrichmentResult.fields_populated,
         });
       } catch (error) {
         failed++;

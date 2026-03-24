@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Sparkles, CircleCheck as CheckCircle, Circle as XCircle, Upload, Image as ImageIcon, Save, Eye, EyeOff } from 'lucide-react';
 import { formatPrice } from '@/lib/formatting';
+import ModelRoutingTab from './ModelRoutingTab';
+import ModelSimilarTab from './ModelSimilarTab';
 
 type Model = any;
 type Dealer = any;
@@ -602,17 +604,21 @@ export default function ModelDetailClient({
             </div>
           )}
 
-          {/* Routing and Similar tabs remain the same */}
           {activeTab === 'routing' && (
-            <div className="text-center py-12 text-slate-600">
-              Lead routing-funksjonalitet kommer her
-            </div>
+            <ModelRoutingTab
+              modelId={model.id}
+              currentDealers={initialDealers}
+              allDealers={allDealers}
+              onRefresh={() => router.refresh()}
+            />
           )}
 
           {activeTab === 'similar' && (
-            <div className="text-center py-12 text-slate-600">
-              Lignende biler-funksjonalitet kommer her
-            </div>
+            <ModelSimilarTab
+              modelId={model.id}
+              similarModels={initialSimilarModels}
+              onRefresh={() => router.refresh()}
+            />
           )}
         </div>
       </div>
