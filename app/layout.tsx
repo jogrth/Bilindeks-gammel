@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     template: `%s | ${APP_NAME}`,
   },
   description: "Finn bilen som passer deg. Sammenlign biler basert på rekkevidde, bagasjerom, hengerfeste, seter og pris.",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
