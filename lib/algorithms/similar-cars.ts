@@ -143,9 +143,10 @@ function calculateSimilarity(model1: Model, model2: Model): number {
 export async function generateSimilarCarsForModel(
   modelId: string,
   limit: number = 5,
-  includeUnpublished: boolean = false
+  includeUnpublished: boolean = false,
+  supabaseClient?: any
 ): Promise<SimilarityResult[]> {
-  const supabase = await createClient();
+  const supabase = supabaseClient || await createClient();
 
   // Get the target model
   const { data: targetModel, error: targetError } = await supabase
@@ -176,13 +177,13 @@ export async function generateSimilarCarsForModel(
 
   // Calculate similarity scores
   const similarities: SimilarityResult[] = allModels
-    .map((model) => ({
+    .map((model: Model) => ({
       model_id: modelId,
       similar_model_id: model.id,
       similarity_score: calculateSimilarity(targetModel, model),
     }))
-    .filter((s) => s.similarity_score >= 30) // Minimum 30% similarity
-    .sort((a, b) => b.similarity_score - a.similarity_score)
+    .filter((s: SimilarityResult) => s.similarity_score >= 30) // Minimum 30% similarity
+    .sort((a: SimilarityResult, b: SimilarityResult) => b.similarity_score - a.similarity_score)
     .slice(0, limit);
 
   return similarities;

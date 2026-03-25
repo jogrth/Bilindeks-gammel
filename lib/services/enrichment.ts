@@ -320,7 +320,12 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
 
     for (const field of fieldsToCheck) {
       if (enrichmentData[field as keyof EnrichmentData] !== undefined) {
-        updatePayload[field] = enrichmentData[field as keyof EnrichmentData];
+        // Map field names to database column names
+        let dbField = field;
+        if (field === 'cargo_space_liters') dbField = 'cargo_liters';
+        if (field === 'towing_capacity_kg') dbField = 'towing_kg';
+
+        updatePayload[dbField] = enrichmentData[field as keyof EnrichmentData];
         fieldsPopulated.push(field);
       }
     }
@@ -382,7 +387,7 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
 
     console.log(`[ENRICHMENT] Generating similar cars`);
     try {
-      const similarities = await generateSimilarCarsForModel(modelId, 5, true);
+      const similarities = await generateSimilarCarsForModel(modelId, 5, true, supabase);
       console.log(`[ENRICHMENT] Found ${similarities.length} similar cars`);
 
       if (similarities.length > 0) {

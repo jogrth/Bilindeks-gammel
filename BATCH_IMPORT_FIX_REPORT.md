@@ -4,8 +4,9 @@
 
 The "Legg til bil" flow was failing with HTTP 500 Internal Server Error after auth was fixed.
 
-### Root Cause
+### Root Causes (Multiple Issues Found)
 
+#### Issue 1: Cookie-Based Supabase Client in Enrichment
 The enrichment pipeline (`lib/services/enrichment.ts`) was using the cookie-based Supabase client from `@/lib/supabase/server`, which doesn't work in API route context when called from the batch-import endpoint.
 
 **Specific issue:**
@@ -16,11 +17,17 @@ const supabase = await createClient(); // from @/lib/supabase/server
 
 This relied on Next.js cookies() API which was not available in the enrichment function's execution context when called from the API route.
 
+#### Issue 2: Cookie-Based Client in Similar Cars Algorithm
+The `generateSimilarCarsForModel()` function in `lib/algorithms/similar-cars.ts` also used the cookie-based client, causing failures during enrichment.
+
+#### Issue 3: Database Field Name Mismatch
+The enrichment interface used `cargo_space_liters` and `towing_capacity_kg`, but the actual database columns are named `cargo_liters` and `towing_kg`. This caused database update failures.
+
 ## Changes Made
 
 ### 1. **lib/services/enrichment.ts**
 
-Changed from cookie-based client to direct service role client:
+#### A. Changed from cookie-based client to direct service role client
 
 **Before:**
 ```typescript
@@ -44,6 +51,45 @@ export async function enrichModel(...) {
 }
 ```
 
+#### B. Fixed database field name mapping
+
+**Before:**
+```typescript
+for (const field of fieldsToCheck) {
+  if (enrichmentData[field] !== undefined) {
+    updatePayload[field] = enrichmentData[field]; // Wrong field names!
+    fieldsPopulated.push(field);
+  }
+}
+```
+
+**After:**
+```typescript
+for (const field of fieldsToCheck) {
+  if (enrichmentData[field] !== undefined) {
+    // Map field names to database column names
+    let dbField = field;
+    if (field === 'cargo_space_liters') dbField = 'cargo_liters';
+    if (field === 'towing_capacity_kg') dbField = 'towing_kg';
+
+    updatePayload[dbField] = enrichmentData[field];
+    fieldsPopulated.push(field);
+  }
+}
+```
+
+#### C. Pass supabase client to similar cars function
+
+**Before:**
+```typescript
+const similarities = await generateSimilarCarsForModel(modelId, 5, true);
+```
+
+**After:**
+```typescript
+const similarities = await generateSimilarCarsForModel(modelId, 5, true, supabase);
+```
+
 **Added comprehensive logging:**
 - `[ENRICHMENT]` prefix for all enrichment logs
 - Logs at each critical step:
@@ -55,7 +101,38 @@ export async function enrichModel(...) {
   - Similar cars generation
   - Success/failure states
 
-### 2. **app/api/admin/models/batch-import/route.ts**
+### 2. **lib/algorithms/similar-cars.ts**
+
+#### Made supabase client injectable
+
+**Before:**
+```typescript
+export async function generateSimilarCarsForModel(
+  modelId: string,
+  limit: number = 5,
+  includeUnpublished: boolean = false
+): Promise<SimilarityResult[]> {
+  const supabase = await createClient(); // Cookie-based!
+  // ...
+}
+```
+
+**After:**
+```typescript
+export async function generateSimilarCarsForModel(
+  modelId: string,
+  limit: number = 5,
+  includeUnpublished: boolean = false,
+  supabaseClient?: any // Accept external client
+): Promise<SimilarityResult[]> {
+  const supabase = supabaseClient || await createClient();
+  // ...
+}
+```
+
+This allows the enrichment function to pass its service role client to avoid cookie dependency.
+
+### 3. **app/api/admin/models/batch-import/route.ts**
 
 Added detailed step-by-step logging throughout the import process:
 
@@ -278,13 +355,44 @@ Expected results:
 ✅ No TypeScript errors
 ✅ All routes compile
 
-## Summary
+## Summary of All Fixes
 
-**Issue:** Cookie-based Supabase client in enrichment function
-**Fix:** Direct service role client with environment variables
-**Impact:** Enrichment now works in API route context
-**Logging:** Comprehensive step-by-step debugging added
-**Error Handling:** Partial failures don't kill entire import
-**Result:** "Legg til bil" flow now works end-to-end
+**Issues Found:**
+1. Cookie-based Supabase client in enrichment function
+2. Cookie-based Supabase client in similar cars algorithm
+3. Database field name mismatch (cargo_space_liters → cargo_liters, towing_capacity_kg → towing_kg)
 
-The fix is ready for testing in the live UI.
+**Fixes Applied:**
+1. Direct service role client with environment variables in enrichment
+2. Injectable supabase client parameter in similar cars function
+3. Field name mapping before database update
+4. Comprehensive step-by-step logging throughout the flow
+5. Partial failure handling (enrichment failure doesn't kill model creation)
+
+**Files Changed:**
+- `lib/services/enrichment.ts` - Client creation + field mapping + logging
+- `lib/algorithms/similar-cars.ts` - Injectable client parameter + TypeScript fixes
+- `app/api/admin/models/batch-import/route.ts` - Step-by-step logging
+
+**Impact:**
+- Enrichment now works in API route context
+- Database updates succeed with correct field names
+- Similar cars generation works without cookie dependency
+- Comprehensive debugging via console logs
+- Partial failures don't kill entire import
+
+**Build Status:**
+✅ TypeScript compilation succeeds
+✅ All routes compile successfully
+✅ No runtime errors expected
+
+**Result:** "Legg til bil" flow should now work end-to-end in the live UI.
+
+## Next Steps - Testing Required
+
+Test in the live UI with:
+1. Single model: "Polestar 4"
+2. Single model: "Peugeot e-5008"
+3. Batch: Both together
+
+Watch server console for `[STEP X]` and `[ENRICHMENT]` logs to confirm flow.
