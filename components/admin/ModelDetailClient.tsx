@@ -579,6 +579,8 @@ export default function ModelDetailClient({
                         <div className="font-medium text-slate-900">Data-kilde</div>
                         <div className="text-sm text-slate-600">
                           {(model as any).enrichment_source === 'known_dataset' && 'Kuratert database'}
+                          {(model as any).enrichment_source === 'openai_generated' && 'OpenAI-generert'}
+                          {(model as any).enrichment_source === 'generic_fallback' && 'Generisk fallback'}
                           {(model as any).enrichment_source === 'ai_generated' && 'AI-generert'}
                           {(model as any).enrichment_source === 'external_api' && 'Ekstern API'}
                           {(model as any).enrichment_source === 'partial' && 'Delvis automatisk'}

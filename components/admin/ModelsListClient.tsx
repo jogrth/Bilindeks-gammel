@@ -93,6 +93,8 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
     if (!source || source === 'manual') return null;
     const labels: Record<string, string> = {
       known_dataset: 'Database',
+      openai_generated: 'OpenAI',
+      generic_fallback: 'Fallback',
       ai_generated: 'AI',
       external_api: 'API',
       partial: 'Delvis',
@@ -103,6 +105,8 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
   const getEnrichmentSourceColor = (source: string | null) => {
     const colors: Record<string, string> = {
       known_dataset: 'bg-blue-100 text-blue-700',
+      openai_generated: 'bg-purple-100 text-purple-700',
+      generic_fallback: 'bg-amber-100 text-amber-700',
       ai_generated: 'bg-purple-100 text-purple-700',
       external_api: 'bg-green-100 text-green-700',
       partial: 'bg-amber-100 text-amber-700',
@@ -289,7 +293,7 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
                           title={model.enrichment_notes || ''}
                         >
                           {getEnrichmentSourceLabel(model.enrichment_source)}
-                          {model.enrichment_confidence && model.enrichment_source === 'ai_generated' && (
+                          {model.enrichment_confidence && (model.enrichment_source === 'ai_generated' || model.enrichment_source === 'openai_generated' || model.enrichment_source === 'generic_fallback') && (
                             <span className="ml-1 opacity-75">
                               {Math.round(model.enrichment_confidence * 100)}%
                             </span>
