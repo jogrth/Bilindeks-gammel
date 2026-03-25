@@ -34,6 +34,9 @@ function generateSlug(text: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  let currentStep = 'initialization';
+  let currentInput = '';
+
   try {
     const authHeader = request.headers.get('Authorization');
     console.log('Auth header present:', !!authHeader);
@@ -112,10 +115,13 @@ export async function POST(request: NextRequest) {
     let failed = 0;
 
     for (const line of lines) {
+      currentInput = line;
+      currentStep = 'parsing_input';
       console.log(`[STEP 2] Processing line: "${line}"`);
 
       const parsed = parseModelInput(line);
       console.log(`[STEP 3] Parsed:`, parsed);
+      currentStep = 'parsed';
 
       if (!parsed) {
         failed++;
@@ -132,6 +138,7 @@ export async function POST(request: NextRequest) {
       try {
         let brand_id: string;
 
+        currentStep = 'looking_up_brand';
         console.log(`[STEP 4] Looking for brand: ${brandName}`);
         const brandSlug = generateSlug(brandName);
         console.log(`[STEP 4] Brand slug: ${brandSlug}`);
@@ -219,8 +226,10 @@ export async function POST(request: NextRequest) {
         console.log(`[STEP 6] Model created:`, newModel.id);
         console.log(`[STEP 7] Starting enrichment for model ${newModel.id}`);
 
+        currentStep = 'enriching_model';
         const enrichmentResult = await enrichModel(newModel.id, modelSlug, brandName, modelName);
         console.log(`[STEP 8] Enrichment completed:`, enrichmentResult);
+        currentStep = 'enrichment_complete';
 
         if (!enrichmentResult.success) {
           console.error(`[STEP 8 ERROR] Enrichment failed:`, enrichmentResult.error);
@@ -259,20 +268,25 @@ export async function POST(request: NextRequest) {
           fields_populated: enrichmentResult.fields_populated,
         });
       } catch (error) {
-        console.error(`[ERROR] Exception processing line "${line}":`, error);
+        console.error(`[ERROR] Exception at step "${currentStep}" processing line "${line}":`, error);
         if (error instanceof Error) {
           console.error(`[ERROR] Stack trace:`, error.stack);
         }
         console.error(`[ERROR] Full error object:`, JSON.stringify(error, null, 2));
 
         const isDev = process.env.NODE_ENV === 'development';
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : undefined;
 
         failed++;
         details.push({
           input: line,
           status: 'error',
-          message: error instanceof Error ? error.message : 'Unknown error',
-          ...(isDev && error instanceof Error ? { stack: error.stack } : {})
+          message: `Failed at ${currentStep}: ${errorMessage}`,
+          ...(isDev && errorStack ? {
+            stack: errorStack,
+            step: currentStep
+          } : {})
         });
       }
     }
@@ -285,23 +299,25 @@ export async function POST(request: NextRequest) {
       details,
     });
   } catch (error) {
-    console.error('[BATCH IMPORT FATAL ERROR]:', error);
+    console.error(`[BATCH IMPORT FATAL ERROR at step "${currentStep}"]`, error);
     if (error instanceof Error) {
       console.error('[BATCH IMPORT FATAL ERROR] Stack:', error.stack);
     }
     console.error('[BATCH IMPORT FATAL ERROR] Full error:', JSON.stringify(error, null, 2));
 
-    // In development, return full error details for debugging
     const isDev = process.env.NODE_ENV === 'development';
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
 
     return NextResponse.json(
       {
         error: 'Internal server error',
-        details: error instanceof Error ? error.message : String(error),
-        ...(isDev && error instanceof Error ? {
-          stack: error.stack,
-          name: error.name,
-          fullError: String(error)
+        message: errorMessage,
+        step: currentStep,
+        input: currentInput,
+        ...(isDev && errorStack ? {
+          stack: errorStack,
+          name: error instanceof Error ? error.name : 'Error'
         } : {})
       },
       { status: 500 }

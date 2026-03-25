@@ -396,32 +396,9 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
       }
     }
 
-    console.log(`[ENRICHMENT] Generating similar cars`);
-    try {
-      const similarities = await generateSimilarCarsForModel(modelId, 5, true, supabase);
-      console.log(`[ENRICHMENT] Found ${similarities.length} similar cars`);
-
-      if (similarities.length > 0) {
-        await supabase
-          .from('similar_models')
-          .delete()
-          .eq('model_id', modelId)
-          .eq('is_pinned', false);
-
-        const { error: insertError } = await supabase
-          .from('similar_models')
-          .insert(similarities);
-
-        if (insertError) {
-          console.error(`[ENRICHMENT] Similar cars insert error:`, insertError);
-        } else {
-          fieldsPopulated.push('similar_cars');
-          console.log(`[ENRICHMENT] Similar cars saved successfully`);
-        }
-      }
-    } catch (err) {
-      console.error('[ENRICHMENT] Failed to generate similar cars:', err);
-    }
+    // Similar cars generation is non-critical - skip if it fails
+    console.log(`[ENRICHMENT] Skipping similar cars generation during initial creation`);
+    // Similar cars can be generated later via the cron job or manual trigger
 
     const fieldsMissing = fieldsToCheck.filter(f => !fieldsPopulated.includes(f));
     const enrichmentLevel =

@@ -62,7 +62,13 @@ export default function AddModelsModal({ isOpen, onClose, onSuccess }: AddModels
         if (data.stack) {
           console.error('Server stack trace:', data.stack);
         }
-        throw new Error(data.error || 'Import failed');
+        if (data.step) {
+          console.error('Failed at step:', data.step);
+        }
+        if (data.input) {
+          console.error('Processing input:', data.input);
+        }
+        throw new Error(data.message || data.error || 'Import failed');
       }
 
       setResult(data);
