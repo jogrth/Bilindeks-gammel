@@ -1,35 +1,12 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { generateSimilarCarsForModel } from '@/lib/algorithms/similar-cars';
-import { enrichWithAI } from './ai-enrichment';
-
-interface EnrichmentData {
-  body_type?: string;
-  drivetrain?: string;
-  drive_type?: string;
-  seats_max?: number;
-  range_wltp_km?: number;
-  cargo_space_liters?: number;
-  towing_capacity_kg?: number;
-  price_from_nok?: number;
-  intro_text?: string;
-  seo_content?: {
-    title: string;
-    sections: Array<{ heading: string; content: string }>;
-  };
-  faq_content?: Array<{ question: string; answer: string }>;
-  trim_levels?: Array<{
-    name: string;
-    price_nok: number;
-    range_wltp_km: number;
-    highlights: string;
-  }>;
-}
+import { enrichModelComprehensively, saveEnrichmentToDatabase } from './comprehensive-enrichment';
 
 interface EnrichmentResult {
   success: boolean;
   model_id: string;
   enrichment_level: 'none' | 'partial' | 'full';
-  enrichment_source: 'known_dataset' | 'openai_generated' | 'generic_fallback' | 'manual';
+  enrichment_source: 'known_dataset' | 'openai_generated' | 'generic_fallback' | 'manual' | 'external_api';
   fields_populated: string[];
   fields_missing: string[];
   confidence?: number;
@@ -37,7 +14,7 @@ interface EnrichmentResult {
   error?: string;
 }
 
-const EV_MODELS_DATA: Record<string, Partial<EnrichmentData>> = {
+const EV_MODELS_DATA: Record<string, any> = {
   'kia-ev9': {
     body_type: 'SUV',
     drivetrain: 'electric',
@@ -140,7 +117,7 @@ const EV_MODELS_DATA: Record<string, Partial<EnrichmentData>> = {
   },
 };
 
-function generateIntroText(brandName: string, modelName: string, data: Partial<EnrichmentData>): string {
+function generateIntroText(brandName: string, modelName: string, data: any): string {
   const parts = [`${brandName} ${modelName} er en`];
 
   if (data.body_type) {
@@ -162,7 +139,7 @@ function generateIntroText(brandName: string, modelName: string, data: Partial<E
   return parts.join(' ') + '.';
 }
 
-function generateSEOContent(brandName: string, modelName: string, data: Partial<EnrichmentData>) {
+function generateSEOContent(brandName: string, modelName: string, data: any) {
   const fullName = `${brandName} ${modelName}`;
   const sections = [];
 
@@ -206,7 +183,7 @@ function generateSEOContent(brandName: string, modelName: string, data: Partial<
   };
 }
 
-function generateFAQ(brandName: string, modelName: string, data: Partial<EnrichmentData>) {
+function generateFAQ(brandName: string, modelName: string, data: any) {
   const fullName = `${brandName} ${modelName}`;
   const faq = [];
 
@@ -247,191 +224,69 @@ function generateFAQ(brandName: string, modelName: string, data: Partial<Enrichm
 }
 
 export async function enrichModel(modelId: string, modelSlug: string, brandName: string, modelName: string): Promise<EnrichmentResult> {
-  console.log(`[ENRICHMENT] Starting enrichment for ${brandName} ${modelName} (${modelId})`);
-  console.log(`[ENRICHMENT] Model ID: ${modelId}, Slug: ${modelSlug}`);
+  console.log(`[ENRICHMENT] Starting comprehensive enrichment for ${brandName} ${modelName} (${modelId})`);
 
   try {
+    const enrichmentData = await enrichModelComprehensively(brandName, modelName);
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    console.log(`[ENRICHMENT] Enrichment completed with source: ${enrichmentData.enrichmentSource}, confidence: ${enrichmentData.enrichmentConfidence}`);
+    console.log(`[ENRICHMENT] Quality score: ${enrichmentData.qualityScore}, Review status: ${enrichmentData.reviewStatus}`);
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase environment variables');
-    }
+    await saveEnrichmentToDatabase(modelId, enrichmentData);
 
-    const supabase = createSupabaseClient(supabaseUrl, supabaseServiceKey);
-    console.log(`[ENRICHMENT] Supabase client created`);
+    console.log(`[ENRICHMENT] Saved enrichment data to database`);
 
-    const knownData = EV_MODELS_DATA[modelSlug];
-    const isKnownModel = !!knownData;
-    console.log(`[ENRICHMENT] Is known model: ${isKnownModel}`);
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+      const supabase = createSupabaseClient(supabaseUrl, supabaseServiceKey);
 
-    let enrichmentData: Partial<EnrichmentData>;
-    let enrichmentSource: 'known_dataset' | 'openai_generated' | 'generic_fallback' = 'generic_fallback';
-    let confidence: number = 1.0;
-    let notes: string = '';
-
-    if (isKnownModel) {
-      console.log(`[ENRICHMENT] Using known dataset for ${modelSlug}`);
-      enrichmentData = {
-        ...knownData,
-        intro_text: generateIntroText(brandName, modelName, knownData),
-        seo_content: generateSEOContent(brandName, modelName, knownData),
-        faq_content: generateFAQ(brandName, modelName, knownData),
-      };
-      enrichmentSource = 'known_dataset';
-      notes = 'Data from curated database';
-    } else {
-      console.log(`[ENRICHMENT] Using AI enrichment for ${modelSlug}`);
-      const aiResult = await enrichWithAI(brandName, modelName);
-      console.log(`[ENRICHMENT] AI result:`, { success: aiResult.success, source: aiResult.source, error: aiResult.error });
-
-      if (aiResult.success && aiResult.data) {
-        enrichmentData = aiResult.data;
-        enrichmentSource = aiResult.source;
-        confidence = aiResult.confidence;
-        notes = aiResult.notes;
-      } else {
-        console.error(`[ENRICHMENT] AI enrichment failed:`, aiResult.error);
-        return {
-          success: false,
-          model_id: modelId,
-          enrichment_level: 'none',
-          enrichment_source: 'generic_fallback',
-          fields_populated: [],
-          fields_missing: [],
-          notes: aiResult.error || 'Enrichment failed',
-          error: aiResult.error,
-        };
+      const similarities = await generateSimilarCarsForModel(modelId, 6, false, supabase);
+      if (similarities.length > 0) {
+        await supabase.from('similar_models').insert(similarities);
+        console.log(`[ENRICHMENT] Generated ${similarities.length} similar car recommendations`);
       }
+    } catch (similarError) {
+      console.error(`[ENRICHMENT] Similar cars generation failed:`, similarError);
     }
 
-    const updatePayload: any = {};
-    const fieldsPopulated: string[] = [];
-    const fieldsToCheck = [
-      'body_type',
-      'drivetrain',
-      'drive_type',
-      'seats_max',
-      'range_wltp_km',
-      'cargo_space_liters',
-      'towing_capacity_kg',
-      'price_from_nok',
-      'intro_text',
-    ];
+    const fieldsPopulated = [
+      'specs',
+      'seo_sections',
+      'faqs',
+      enrichmentData.trimLevels.length > 0 ? 'trim_levels' : null,
+    ].filter(Boolean) as string[];
 
-    for (const field of fieldsToCheck) {
-      if (enrichmentData[field as keyof EnrichmentData] !== undefined) {
-        // Map field names to database column names
-        let dbField = field;
-        if (field === 'cargo_space_liters') dbField = 'cargo_liters';
-        if (field === 'towing_capacity_kg') dbField = 'towing_kg';
-
-        updatePayload[dbField] = enrichmentData[field as keyof EnrichmentData];
-        fieldsPopulated.push(field);
-      }
+    const fieldsMissing = [];
+    if (enrichmentData.needsReviewReasons.length > 0) {
+      fieldsMissing.push(...enrichmentData.needsReviewReasons);
     }
 
-    if (enrichmentData.seo_content) {
-      updatePayload.seo_content = enrichmentData.seo_content;
-      fieldsPopulated.push('seo_content');
-    }
+    const enrichmentLevel: 'none' | 'partial' | 'full' =
+      enrichmentData.qualityScore >= 80 ? 'full' :
+      enrichmentData.qualityScore >= 40 ? 'partial' : 'none';
 
-    if (enrichmentData.faq_content) {
-      updatePayload.faq_content = enrichmentData.faq_content;
-      fieldsPopulated.push('faq_content');
-    }
-
-    updatePayload.content_generated_at = new Date().toISOString();
-    updatePayload.enrichment_source = enrichmentSource;
-    updatePayload.enrichment_confidence = confidence;
-    updatePayload.enrichment_notes = notes;
-
-    console.log(`[ENRICHMENT] Updating model with ${fieldsPopulated.length} fields`);
-    console.log(`[ENRICHMENT] Update payload keys:`, Object.keys(updatePayload));
-    console.log(`[ENRICHMENT] Update payload values:`, JSON.stringify(updatePayload, null, 2));
-
-    console.log(`[ENRICHMENT] About to update model ${modelId} in database...`);
-    const { error: updateError, data: updateData } = await supabase
-      .from('models')
-      .update(updatePayload)
-      .eq('id', modelId)
-      .select();
-
-    if (updateError) {
-      console.error(`[ENRICHMENT] ❌ Update error:`, updateError);
-      console.error(`[ENRICHMENT] ❌ Error code:`, updateError.code);
-      console.error(`[ENRICHMENT] ❌ Error message:`, updateError.message);
-      console.error(`[ENRICHMENT] ❌ Error details:`, updateError.details);
-      console.error(`[ENRICHMENT] ❌ Error hint:`, updateError.hint);
-      throw new Error(`Failed to update model: ${updateError.message}`);
-    }
-
-    console.log(`[ENRICHMENT] ✅ Update data:`, updateData);
-
-    console.log(`[ENRICHMENT] Model updated successfully`);
-
-    if (enrichmentData.trim_levels && enrichmentData.trim_levels.length > 0) {
-      console.log(`[ENRICHMENT] Inserting ${enrichmentData.trim_levels.length} trim levels`);
-      try {
-        for (const trim of enrichmentData.trim_levels) {
-          const trimSlug = `${modelSlug}-${trim.name.toLowerCase().replace(/\s+/g, '-')}`;
-          const { error: trimError } = await supabase.from('trim_levels').insert({
-            model_id: modelId,
-            name: trim.name,
-            slug: trimSlug,
-            price_nok: trim.price_nok,
-            range_wltp_km: trim.range_wltp_km,
-            equipment_highlights: trim.highlights,
-            published: false,
-          });
-
-          if (trimError) {
-            console.error(`[ENRICHMENT] Trim level insert error:`, trimError);
-          }
-        }
-        fieldsPopulated.push('trim_levels');
-      } catch (trimErr) {
-        console.error(`[ENRICHMENT] Trim levels failed:`, trimErr);
-      }
-    }
-
-    // Similar cars generation is non-critical - skip if it fails
-    console.log(`[ENRICHMENT] Skipping similar cars generation during initial creation`);
-    // Similar cars can be generated later via the cron job or manual trigger
-
-    const fieldsMissing = fieldsToCheck.filter(f => !fieldsPopulated.includes(f));
-    const enrichmentLevel =
-      fieldsPopulated.length === 0 ? 'none' :
-      fieldsMissing.length === 0 ? 'full' : 'partial';
-
-    console.log(`[ENRICHMENT] Complete! Level: ${enrichmentLevel}, Fields: ${fieldsPopulated.length}`);
+    console.log(`[ENRICHMENT] Complete! Level: ${enrichmentLevel}, Quality Score: ${enrichmentData.qualityScore}`);
 
     return {
       success: true,
       model_id: modelId,
       enrichment_level: enrichmentLevel,
-      enrichment_source: enrichmentSource,
+      enrichment_source: enrichmentData.enrichmentSource,
       fields_populated: fieldsPopulated,
       fields_missing: fieldsMissing,
-      confidence,
-      notes,
+      confidence: enrichmentData.enrichmentConfidence,
+      notes: enrichmentData.enrichmentNotes,
     };
   } catch (error) {
     console.error(`[ENRICHMENT] ❌ Fatal error:`, error);
-    if (error instanceof Error) {
-      console.error(`[ENRICHMENT] ❌ Error name:`, error.name);
-      console.error(`[ENRICHMENT] ❌ Error message:`, error.message);
-      console.error(`[ENRICHMENT] ❌ Error stack:`, error.stack);
-    }
-    console.error(`[ENRICHMENT] ❌ Full error object:`, JSON.stringify(error, null, 2));
     return {
       success: false,
       model_id: modelId,
       enrichment_level: 'none',
       enrichment_source: 'generic_fallback',
       fields_populated: [],
-      fields_missing: [],
+      fields_missing: ['All fields'],
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }

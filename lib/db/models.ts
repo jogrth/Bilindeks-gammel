@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import type { CarModel, CarFilters } from '@/types';
+import type { CarModel, CarFilters, ModelImage, ModelTrimLevel, ModelFAQ, ModelSEOSection } from '@/types';
 
 export async function getPublishedModels(filters?: CarFilters) {
   const supabase = await createClient();
@@ -188,6 +188,75 @@ export async function getAllBrands() {
 
   if (error) {
     console.error('Error fetching brands:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getModelImages(modelId: string): Promise<ModelImage[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('model_images')
+    .select('*')
+    .eq('model_id', modelId)
+    .order('is_primary', { ascending: false })
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching model images:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getModelTrimLevels(modelId: string): Promise<ModelTrimLevel[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('model_trim_levels')
+    .select('*')
+    .eq('model_id', modelId)
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching trim levels:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getModelFAQs(modelId: string): Promise<ModelFAQ[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('model_faqs')
+    .select('*')
+    .eq('model_id', modelId)
+    .order('display_order', { ascending: true});
+
+  if (error) {
+    console.error('Error fetching FAQs:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getModelSEOSections(modelId: string): Promise<ModelSEOSection[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('model_seo_sections')
+    .select('*')
+    .eq('model_id', modelId)
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching SEO sections:', error);
     return [];
   }
 

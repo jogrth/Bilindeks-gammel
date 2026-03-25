@@ -12,6 +12,7 @@ interface Model {
   id: string;
   brand_id: string;
   name: string;
+  segment: string | null;
   body_type: string | null;
   drivetrain: string | null;
   drive_type: string | null;
@@ -21,6 +22,8 @@ interface Model {
   towing_kg: number | null;
   range_wltp_km: number | null;
   price_from_nok: number | null;
+  battery_kwh: number | null;
+  power_hp: number | null;
   published: boolean;
 }
 
@@ -35,13 +38,15 @@ interface SimilarityResult {
  * Total should be 100 for percentage score
  */
 const WEIGHTS = {
-  bodyType: 25,        // Same segment/body type is very important
+  segment: 20,         // Same segment is critical
+  bodyType: 15,        // Same body type matters
   priceRange: 20,      // Price proximity matters
-  driveType: 15,       // AWD vs RWD vs FWD similarity
-  rangeProximity: 15,  // Range similarity
-  towingCapacity: 10,  // Towing capability
-  cargoSpace: 10,      // Luggage space
-  seating: 5,          // Seat count similarity
+  driveType: 12,       // AWD vs RWD vs FWD similarity
+  rangeProximity: 12,  // Range similarity
+  towingCapacity: 8,   // Towing capability
+  cargoSpace: 8,       // Luggage space
+  seating: 3,          // Seat count similarity
+  power: 2,            // Power similarity
 };
 
 /**
@@ -50,7 +55,19 @@ const WEIGHTS = {
 function calculateSimilarity(model1: Model, model2: Model): number {
   let score = 0;
 
-  // Body type match (25 points)
+  // Segment match (20 points) - most important for categorization
+  if (model1.segment && model2.segment) {
+    if (model1.segment === model2.segment) {
+      score += WEIGHTS.segment;
+    } else if (
+      (model1.segment.includes('SUV') && model2.segment.includes('SUV')) ||
+      (model1.segment.includes('Sedan') && model2.segment.includes('Sedan'))
+    ) {
+      score += WEIGHTS.segment * 0.5;
+    }
+  }
+
+  // Body type match (15 points)
   if (model1.body_type && model2.body_type) {
     if (model1.body_type === model2.body_type) {
       score += WEIGHTS.bodyType;
@@ -126,12 +143,25 @@ function calculateSimilarity(model1: Model, model2: Model): number {
     }
   }
 
-  // Seating similarity (5 points)
+  // Seating similarity (3 points)
   if (model1.seats_max && model2.seats_max) {
     if (model1.seats_max === model2.seats_max) {
       score += WEIGHTS.seating;
     } else if (Math.abs(model1.seats_max - model2.seats_max) <= 2) {
       score += WEIGHTS.seating * 0.5;
+    }
+  }
+
+  // Power similarity (2 points) - bonus for similar performance tier
+  if (model1.power_hp && model2.power_hp) {
+    const powerDiff = Math.abs(model1.power_hp - model2.power_hp);
+    const avgPower = (model1.power_hp + model2.power_hp) / 2;
+    const powerDeviation = powerDiff / avgPower;
+
+    if (powerDeviation <= 0.2) {
+      score += WEIGHTS.power;
+    } else if (powerDeviation <= 0.5) {
+      score += WEIGHTS.power * (1 - (powerDeviation - 0.2) / 0.3);
     }
   }
 
@@ -186,7 +216,7 @@ export async function generateSimilarCarsForModel(
       similar_model_id: model.id,
       similarity_score: calculateSimilarity(targetModel, model),
     }))
-    .filter((s: SimilarityResult) => s.similarity_score >= 30) // Minimum 30% similarity
+    .filter((s: SimilarityResult) => s.similarity_score >= 25) // Minimum 25% similarity
     .sort((a: SimilarityResult, b: SimilarityResult) => b.similarity_score - a.similarity_score)
     .slice(0, limit);
 
