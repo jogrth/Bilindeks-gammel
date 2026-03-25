@@ -29,7 +29,7 @@ interface EnrichmentResult {
   success: boolean;
   model_id: string;
   enrichment_level: 'none' | 'partial' | 'full';
-  enrichment_source: 'known_dataset' | 'ai_generated' | 'manual' | 'partial';
+  enrichment_source: 'known_dataset' | 'openai_generated' | 'generic_fallback' | 'manual';
   fields_populated: string[];
   fields_missing: string[];
   confidence?: number;
@@ -254,7 +254,7 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
     const isKnownModel = !!knownData;
 
     let enrichmentData: Partial<EnrichmentData>;
-    let enrichmentSource: 'known_dataset' | 'ai_generated' | 'partial' = 'partial';
+    let enrichmentSource: 'known_dataset' | 'openai_generated' | 'generic_fallback' = 'generic_fallback';
     let confidence: number = 1.0;
     let notes: string = '';
 
@@ -272,7 +272,7 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
 
       if (aiResult.success && aiResult.data) {
         enrichmentData = aiResult.data;
-        enrichmentSource = 'ai_generated';
+        enrichmentSource = aiResult.source;
         confidence = aiResult.confidence;
         notes = aiResult.notes;
       } else {
@@ -280,10 +280,10 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
           success: false,
           model_id: modelId,
           enrichment_level: 'none',
-          enrichment_source: 'partial',
+          enrichment_source: 'generic_fallback',
           fields_populated: [],
           fields_missing: [],
-          notes: aiResult.error || 'AI enrichment failed',
+          notes: aiResult.error || 'Enrichment failed',
           error: aiResult.error,
         };
       }
@@ -351,8 +351,23 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
     }
 
     try {
-      await generateSimilarCarsForModel(modelId, 5);
-      fieldsPopulated.push('similar_cars');
+      const similarities = await generateSimilarCarsForModel(modelId, 5, true);
+
+      if (similarities.length > 0) {
+        await supabase
+          .from('similar_models')
+          .delete()
+          .eq('model_id', modelId)
+          .eq('is_pinned', false);
+
+        const { error: insertError } = await supabase
+          .from('similar_models')
+          .insert(similarities);
+
+        if (!insertError) {
+          fieldsPopulated.push('similar_cars');
+        }
+      }
     } catch (err) {
       console.error('Failed to generate similar cars:', err);
     }
@@ -377,7 +392,7 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
       success: false,
       model_id: modelId,
       enrichment_level: 'none',
-      enrichment_source: 'partial',
+      enrichment_source: 'generic_fallback',
       fields_populated: [],
       fields_missing: [],
       error: error instanceof Error ? error.message : 'Unknown error',

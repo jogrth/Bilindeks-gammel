@@ -142,7 +142,8 @@ function calculateSimilarity(model1: Model, model2: Model): number {
  */
 export async function generateSimilarCarsForModel(
   modelId: string,
-  limit: number = 5
+  limit: number = 5,
+  includeUnpublished: boolean = false
 ): Promise<SimilarityResult[]> {
   const supabase = await createClient();
 
@@ -157,12 +158,17 @@ export async function generateSimilarCarsForModel(
     throw new Error('Model not found');
   }
 
-  // Get all other published models
-  const { data: allModels, error: modelsError } = await supabase
+  // Get all other models (published or all depending on flag)
+  let query = supabase
     .from('models')
     .select('*')
-    .eq('published', true)
     .neq('id', modelId);
+
+  if (!includeUnpublished) {
+    query = query.eq('published', true);
+  }
+
+  const { data: allModels, error: modelsError } = await query;
 
   if (modelsError || !allModels) {
     return [];
