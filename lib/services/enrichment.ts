@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { generateSimilarCarsForModel } from '@/lib/algorithms/similar-cars';
 import { enrichWithAI } from './ai-enrichment';
 
@@ -248,10 +248,21 @@ function generateFAQ(brandName: string, modelName: string, data: Partial<Enrichm
 
 export async function enrichModel(modelId: string, modelSlug: string, brandName: string, modelName: string): Promise<EnrichmentResult> {
   try {
-    const supabase = await createClient();
+    console.log(`[ENRICHMENT] Starting enrichment for ${brandName} ${modelName} (${modelId})`);
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
+
+    const supabase = createSupabaseClient(supabaseUrl, supabaseServiceKey);
+    console.log(`[ENRICHMENT] Supabase client created`);
 
     const knownData = EV_MODELS_DATA[modelSlug];
     const isKnownModel = !!knownData;
+    console.log(`[ENRICHMENT] Is known model: ${isKnownModel}`);
 
     let enrichmentData: Partial<EnrichmentData>;
     let enrichmentSource: 'known_dataset' | 'openai_generated' | 'generic_fallback' = 'generic_fallback';
@@ -259,6 +270,7 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
     let notes: string = '';
 
     if (isKnownModel) {
+      console.log(`[ENRICHMENT] Using known dataset for ${modelSlug}`);
       enrichmentData = {
         ...knownData,
         intro_text: generateIntroText(brandName, modelName, knownData),
@@ -268,7 +280,9 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
       enrichmentSource = 'known_dataset';
       notes = 'Data from curated database';
     } else {
+      console.log(`[ENRICHMENT] Using AI enrichment for ${modelSlug}`);
       const aiResult = await enrichWithAI(brandName, modelName);
+      console.log(`[ENRICHMENT] AI result:`, { success: aiResult.success, source: aiResult.source, error: aiResult.error });
 
       if (aiResult.success && aiResult.data) {
         enrichmentData = aiResult.data;
@@ -276,6 +290,7 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
         confidence = aiResult.confidence;
         notes = aiResult.notes;
       } else {
+        console.error(`[ENRICHMENT] AI enrichment failed:`, aiResult.error);
         return {
           success: false,
           model_id: modelId,
@@ -325,33 +340,50 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
     updatePayload.enrichment_confidence = confidence;
     updatePayload.enrichment_notes = notes;
 
+    console.log(`[ENRICHMENT] Updating model with ${fieldsPopulated.length} fields`);
+    console.log(`[ENRICHMENT] Update payload:`, Object.keys(updatePayload));
+
     const { error: updateError } = await supabase
       .from('models')
       .update(updatePayload)
       .eq('id', modelId);
 
     if (updateError) {
+      console.error(`[ENRICHMENT] Update error:`, updateError);
       throw new Error(`Failed to update model: ${updateError.message}`);
     }
 
+    console.log(`[ENRICHMENT] Model updated successfully`);
+
     if (enrichmentData.trim_levels && enrichmentData.trim_levels.length > 0) {
-      for (const trim of enrichmentData.trim_levels) {
-        const trimSlug = `${modelSlug}-${trim.name.toLowerCase().replace(/\s+/g, '-')}`;
-        await supabase.from('trim_levels').insert({
-          model_id: modelId,
-          name: trim.name,
-          slug: trimSlug,
-          price_nok: trim.price_nok,
-          range_wltp_km: trim.range_wltp_km,
-          equipment_highlights: trim.highlights,
-          published: false,
-        });
+      console.log(`[ENRICHMENT] Inserting ${enrichmentData.trim_levels.length} trim levels`);
+      try {
+        for (const trim of enrichmentData.trim_levels) {
+          const trimSlug = `${modelSlug}-${trim.name.toLowerCase().replace(/\s+/g, '-')}`;
+          const { error: trimError } = await supabase.from('trim_levels').insert({
+            model_id: modelId,
+            name: trim.name,
+            slug: trimSlug,
+            price_nok: trim.price_nok,
+            range_wltp_km: trim.range_wltp_km,
+            equipment_highlights: trim.highlights,
+            published: false,
+          });
+
+          if (trimError) {
+            console.error(`[ENRICHMENT] Trim level insert error:`, trimError);
+          }
+        }
+        fieldsPopulated.push('trim_levels');
+      } catch (trimErr) {
+        console.error(`[ENRICHMENT] Trim levels failed:`, trimErr);
       }
-      fieldsPopulated.push('trim_levels');
     }
 
+    console.log(`[ENRICHMENT] Generating similar cars`);
     try {
       const similarities = await generateSimilarCarsForModel(modelId, 5, true);
+      console.log(`[ENRICHMENT] Found ${similarities.length} similar cars`);
 
       if (similarities.length > 0) {
         await supabase
@@ -364,18 +396,23 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
           .from('similar_models')
           .insert(similarities);
 
-        if (!insertError) {
+        if (insertError) {
+          console.error(`[ENRICHMENT] Similar cars insert error:`, insertError);
+        } else {
           fieldsPopulated.push('similar_cars');
+          console.log(`[ENRICHMENT] Similar cars saved successfully`);
         }
       }
     } catch (err) {
-      console.error('Failed to generate similar cars:', err);
+      console.error('[ENRICHMENT] Failed to generate similar cars:', err);
     }
 
     const fieldsMissing = fieldsToCheck.filter(f => !fieldsPopulated.includes(f));
     const enrichmentLevel =
       fieldsPopulated.length === 0 ? 'none' :
       fieldsMissing.length === 0 ? 'full' : 'partial';
+
+    console.log(`[ENRICHMENT] Complete! Level: ${enrichmentLevel}, Fields: ${fieldsPopulated.length}`);
 
     return {
       success: true,
@@ -388,6 +425,7 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
       notes,
     };
   } catch (error) {
+    console.error(`[ENRICHMENT] Fatal error:`, error);
     return {
       success: false,
       model_id: modelId,

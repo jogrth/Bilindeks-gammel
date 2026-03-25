@@ -112,7 +112,10 @@ export async function POST(request: NextRequest) {
     let failed = 0;
 
     for (const line of lines) {
+      console.log(`[STEP 2] Processing line: "${line}"`);
+
       const parsed = parseModelInput(line);
+      console.log(`[STEP 3] Parsed:`, parsed);
 
       if (!parsed) {
         failed++;
@@ -129,7 +132,10 @@ export async function POST(request: NextRequest) {
       try {
         let brand_id: string;
 
+        console.log(`[STEP 4] Looking for brand: ${brandName}`);
         const brandSlug = generateSlug(brandName);
+        console.log(`[STEP 4] Brand slug: ${brandSlug}`);
+
         const { data: existingBrand } = await supabaseAdmin
           .from('brands')
           .select('id')
@@ -137,8 +143,10 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         if (existingBrand) {
+          console.log(`[STEP 5] Brand found:`, existingBrand.id);
           brand_id = existingBrand.id;
         } else {
+          console.log(`[STEP 5] Creating brand: ${brandName}`);
           const { data: newBrand, error: brandError } = await supabaseAdmin
             .from('brands')
             .insert({
@@ -149,6 +157,7 @@ export async function POST(request: NextRequest) {
             .single();
 
           if (brandError || !newBrand) {
+            console.error(`[STEP 5 ERROR] Brand creation failed:`, brandError);
             failed++;
             details.push({
               input: line,
@@ -158,10 +167,12 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
+          console.log(`[STEP 5] Brand created:`, newBrand.id);
           brand_id = newBrand.id;
         }
 
         const modelSlug = generateSlug(`${brandName} ${modelName}`);
+        console.log(`[STEP 6] Model slug: ${modelSlug}`);
 
         const { data: existingModel } = await supabaseAdmin
           .from('models')
@@ -170,6 +181,7 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         if (existingModel) {
+          console.log(`[STEP 6] Model already exists:`, existingModel.id);
           updated++;
           details.push({
             input: line,
@@ -180,6 +192,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        console.log(`[STEP 6] Creating model: ${modelName}`);
         const { data: newModel, error: modelError } = await supabaseAdmin
           .from('models')
           .insert({
@@ -193,23 +206,49 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (modelError || !newModel) {
+          console.error(`[STEP 6 ERROR] Model creation failed:`, modelError);
           failed++;
           details.push({
             input: line,
             status: 'error',
-            message: `Failed to create model: ${modelError?.message || 'Unknown error'}`,
+            message: `Kunne ikke opprette modell: ${modelError?.message || 'Unknown error'}`,
           });
           continue;
         }
 
-        const enrichmentResult = await enrichModel(newModel.id, modelSlug, brandName, modelName);
+        console.log(`[STEP 6] Model created:`, newModel.id);
+        console.log(`[STEP 7] Starting enrichment for model ${newModel.id}`);
 
+        const enrichmentResult = await enrichModel(newModel.id, modelSlug, brandName, modelName);
+        console.log(`[STEP 8] Enrichment completed:`, enrichmentResult);
+
+        if (!enrichmentResult.success) {
+          console.error(`[STEP 8 ERROR] Enrichment failed:`, enrichmentResult.error);
+          // Still count as success since model was created
+          created++;
+          details.push({
+            input: line,
+            status: 'success',
+            message: `Model created but enrichment failed: ${enrichmentResult.error || 'Unknown error'}`,
+            model_id: newModel.id,
+            enrichment_level: 'none',
+            fields_populated: [],
+          });
+          continue;
+        }
+
+        console.log(`[STEP 10] Updating model status to final state`);
         const finalStatus = enrichmentResult.enrichment_level === 'full' ? 'needs_review' : 'draft';
-        await supabaseAdmin
+        const { error: statusError } = await supabaseAdmin
           .from('models')
           .update({ status: finalStatus })
           .eq('id', newModel.id);
 
+        if (statusError) {
+          console.error(`[STEP 10 ERROR] Status update failed:`, statusError);
+        }
+
+        console.log(`[STEP 11] Success! Model ${newModel.id} completed`);
         created++;
         details.push({
           input: line,
@@ -220,6 +259,7 @@ export async function POST(request: NextRequest) {
           fields_populated: enrichmentResult.fields_populated,
         });
       } catch (error) {
+        console.error(`[ERROR] Exception processing line "${line}":`, error);
         failed++;
         details.push({
           input: line,
