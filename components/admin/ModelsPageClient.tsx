@@ -32,6 +32,9 @@ type Model = {
   status: string | null;
   published: boolean;
   data_quality_score: number | null;
+  enrichment_source: string | null;
+  enrichment_confidence: number | null;
+  enrichment_notes: string | null;
   model_year_start: number | null;
   model_year_end: number | null;
   created_at: string;

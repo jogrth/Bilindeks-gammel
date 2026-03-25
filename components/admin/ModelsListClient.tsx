@@ -31,6 +31,9 @@ type Model = {
   status: string | null;
   published: boolean;
   data_quality_score: number | null;
+  enrichment_source: string | null;
+  enrichment_confidence: number | null;
+  enrichment_notes: string | null;
   model_year_start: number | null;
   model_year_end: number | null;
   created_at: string;
@@ -84,6 +87,27 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
     if (score >= 80) return 'God';
     if (score >= 60) return 'Middels';
     return 'Mangler data';
+  };
+
+  const getEnrichmentSourceLabel = (source: string | null) => {
+    if (!source || source === 'manual') return null;
+    const labels: Record<string, string> = {
+      known_dataset: 'Database',
+      ai_generated: 'AI',
+      external_api: 'API',
+      partial: 'Delvis',
+    };
+    return labels[source] || source;
+  };
+
+  const getEnrichmentSourceColor = (source: string | null) => {
+    const colors: Record<string, string> = {
+      known_dataset: 'bg-blue-100 text-blue-700',
+      ai_generated: 'bg-purple-100 text-purple-700',
+      external_api: 'bg-green-100 text-green-700',
+      partial: 'bg-amber-100 text-amber-700',
+    };
+    return colors[source || ''] || 'bg-slate-100 text-slate-700';
   };
 
   return (
@@ -165,6 +189,9 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Kilde
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Datakvalitet
@@ -252,6 +279,23 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
                       >
                         {model.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getEnrichmentSourceLabel(model.enrichment_source) && (
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getEnrichmentSourceColor(
+                            model.enrichment_source
+                          )}`}
+                          title={model.enrichment_notes || ''}
+                        >
+                          {getEnrichmentSourceLabel(model.enrichment_source)}
+                          {model.enrichment_confidence && model.enrichment_source === 'ai_generated' && (
+                            <span className="ml-1 opacity-75">
+                              {Math.round(model.enrichment_confidence * 100)}%
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">

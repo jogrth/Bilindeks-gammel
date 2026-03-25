@@ -572,6 +572,30 @@ export default function ModelDetailClient({
                       {model.data_quality_score}%
                     </div>
                   </div>
+
+                  {(model as any).enrichment_source && (
+                    <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                      <div>
+                        <div className="font-medium text-slate-900">Data-kilde</div>
+                        <div className="text-sm text-slate-600">
+                          {(model as any).enrichment_source === 'known_dataset' && 'Kuratert database'}
+                          {(model as any).enrichment_source === 'ai_generated' && 'AI-generert'}
+                          {(model as any).enrichment_source === 'external_api' && 'Ekstern API'}
+                          {(model as any).enrichment_source === 'partial' && 'Delvis automatisk'}
+                          {(model as any).enrichment_notes && (
+                            <div className="mt-1 text-xs text-slate-500">
+                              {(model as any).enrichment_notes}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {(model as any).enrichment_confidence && (
+                        <div className="text-2xl font-bold text-blue-600">
+                          {Math.round((model as any).enrichment_confidence * 100)}%
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-6 flex gap-4">

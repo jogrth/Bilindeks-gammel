@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { generateSimilarCarsForModel } from '@/lib/algorithms/similar-cars';
+import { enrichWithAI } from './ai-enrichment';
 
 interface EnrichmentData {
   body_type?: string;
@@ -16,14 +17,23 @@ interface EnrichmentData {
     sections: Array<{ heading: string; content: string }>;
   };
   faq_content?: Array<{ question: string; answer: string }>;
+  trim_levels?: Array<{
+    name: string;
+    price_nok: number;
+    range_wltp_km: number;
+    highlights: string;
+  }>;
 }
 
 interface EnrichmentResult {
   success: boolean;
   model_id: string;
   enrichment_level: 'none' | 'partial' | 'full';
+  enrichment_source: 'known_dataset' | 'ai_generated' | 'manual' | 'partial';
   fields_populated: string[];
   fields_missing: string[];
+  confidence?: number;
+  notes?: string;
   error?: string;
 }
 
@@ -240,14 +250,44 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
   try {
     const supabase = await createClient();
 
-    const knownData = EV_MODELS_DATA[modelSlug] || {};
+    const knownData = EV_MODELS_DATA[modelSlug];
+    const isKnownModel = !!knownData;
 
-    const enrichmentData: Partial<EnrichmentData> = {
-      ...knownData,
-      intro_text: generateIntroText(brandName, modelName, knownData),
-      seo_content: generateSEOContent(brandName, modelName, knownData),
-      faq_content: generateFAQ(brandName, modelName, knownData),
-    };
+    let enrichmentData: Partial<EnrichmentData>;
+    let enrichmentSource: 'known_dataset' | 'ai_generated' | 'partial' = 'partial';
+    let confidence: number = 1.0;
+    let notes: string = '';
+
+    if (isKnownModel) {
+      enrichmentData = {
+        ...knownData,
+        intro_text: generateIntroText(brandName, modelName, knownData),
+        seo_content: generateSEOContent(brandName, modelName, knownData),
+        faq_content: generateFAQ(brandName, modelName, knownData),
+      };
+      enrichmentSource = 'known_dataset';
+      notes = 'Data from curated database';
+    } else {
+      const aiResult = await enrichWithAI(brandName, modelName);
+
+      if (aiResult.success && aiResult.data) {
+        enrichmentData = aiResult.data;
+        enrichmentSource = 'ai_generated';
+        confidence = aiResult.confidence;
+        notes = aiResult.notes;
+      } else {
+        return {
+          success: false,
+          model_id: modelId,
+          enrichment_level: 'none',
+          enrichment_source: 'partial',
+          fields_populated: [],
+          fields_missing: [],
+          notes: aiResult.error || 'AI enrichment failed',
+          error: aiResult.error,
+        };
+      }
+    }
 
     const updatePayload: any = {};
     const fieldsPopulated: string[] = [];
@@ -281,6 +321,9 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
     }
 
     updatePayload.content_generated_at = new Date().toISOString();
+    updatePayload.enrichment_source = enrichmentSource;
+    updatePayload.enrichment_confidence = confidence;
+    updatePayload.enrichment_notes = notes;
 
     const { error: updateError } = await supabase
       .from('models')
@@ -289,6 +332,22 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
 
     if (updateError) {
       throw new Error(`Failed to update model: ${updateError.message}`);
+    }
+
+    if (enrichmentData.trim_levels && enrichmentData.trim_levels.length > 0) {
+      for (const trim of enrichmentData.trim_levels) {
+        const trimSlug = `${modelSlug}-${trim.name.toLowerCase().replace(/\s+/g, '-')}`;
+        await supabase.from('trim_levels').insert({
+          model_id: modelId,
+          name: trim.name,
+          slug: trimSlug,
+          price_nok: trim.price_nok,
+          range_wltp_km: trim.range_wltp_km,
+          equipment_highlights: trim.highlights,
+          published: false,
+        });
+      }
+      fieldsPopulated.push('trim_levels');
     }
 
     try {
@@ -307,14 +366,18 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
       success: true,
       model_id: modelId,
       enrichment_level: enrichmentLevel,
+      enrichment_source: enrichmentSource,
       fields_populated: fieldsPopulated,
       fields_missing: fieldsMissing,
+      confidence,
+      notes,
     };
   } catch (error) {
     return {
       success: false,
       model_id: modelId,
       enrichment_level: 'none',
+      enrichment_source: 'partial',
       fields_populated: [],
       fields_missing: [],
       error: error instanceof Error ? error.message : 'Unknown error',
