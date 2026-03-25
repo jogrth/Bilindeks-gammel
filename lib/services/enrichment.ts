@@ -247,8 +247,10 @@ function generateFAQ(brandName: string, modelName: string, data: Partial<Enrichm
 }
 
 export async function enrichModel(modelId: string, modelSlug: string, brandName: string, modelName: string): Promise<EnrichmentResult> {
+  console.log(`[ENRICHMENT] Starting enrichment for ${brandName} ${modelName} (${modelId})`);
+  console.log(`[ENRICHMENT] Model ID: ${modelId}, Slug: ${modelSlug}`);
+
   try {
-    console.log(`[ENRICHMENT] Starting enrichment for ${brandName} ${modelName} (${modelId})`);
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -346,17 +348,26 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
     updatePayload.enrichment_notes = notes;
 
     console.log(`[ENRICHMENT] Updating model with ${fieldsPopulated.length} fields`);
-    console.log(`[ENRICHMENT] Update payload:`, Object.keys(updatePayload));
+    console.log(`[ENRICHMENT] Update payload keys:`, Object.keys(updatePayload));
+    console.log(`[ENRICHMENT] Update payload values:`, JSON.stringify(updatePayload, null, 2));
 
-    const { error: updateError } = await supabase
+    console.log(`[ENRICHMENT] About to update model ${modelId} in database...`);
+    const { error: updateError, data: updateData } = await supabase
       .from('models')
       .update(updatePayload)
-      .eq('id', modelId);
+      .eq('id', modelId)
+      .select();
 
     if (updateError) {
-      console.error(`[ENRICHMENT] Update error:`, updateError);
+      console.error(`[ENRICHMENT] ❌ Update error:`, updateError);
+      console.error(`[ENRICHMENT] ❌ Error code:`, updateError.code);
+      console.error(`[ENRICHMENT] ❌ Error message:`, updateError.message);
+      console.error(`[ENRICHMENT] ❌ Error details:`, updateError.details);
+      console.error(`[ENRICHMENT] ❌ Error hint:`, updateError.hint);
       throw new Error(`Failed to update model: ${updateError.message}`);
     }
+
+    console.log(`[ENRICHMENT] ✅ Update data:`, updateData);
 
     console.log(`[ENRICHMENT] Model updated successfully`);
 
@@ -430,7 +441,13 @@ export async function enrichModel(modelId: string, modelSlug: string, brandName:
       notes,
     };
   } catch (error) {
-    console.error(`[ENRICHMENT] Fatal error:`, error);
+    console.error(`[ENRICHMENT] ❌ Fatal error:`, error);
+    if (error instanceof Error) {
+      console.error(`[ENRICHMENT] ❌ Error name:`, error.name);
+      console.error(`[ENRICHMENT] ❌ Error message:`, error.message);
+      console.error(`[ENRICHMENT] ❌ Error stack:`, error.stack);
+    }
+    console.error(`[ENRICHMENT] ❌ Full error object:`, JSON.stringify(error, null, 2));
     return {
       success: false,
       model_id: modelId,

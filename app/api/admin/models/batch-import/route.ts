@@ -260,6 +260,10 @@ export async function POST(request: NextRequest) {
         });
       } catch (error) {
         console.error(`[ERROR] Exception processing line "${line}":`, error);
+        if (error instanceof Error) {
+          console.error(`[ERROR] Stack trace:`, error.stack);
+        }
+        console.error(`[ERROR] Full error object:`, JSON.stringify(error, null, 2));
         failed++;
         details.push({
           input: line,
@@ -277,9 +281,13 @@ export async function POST(request: NextRequest) {
       details,
     });
   } catch (error) {
-    console.error('Batch import error:', error);
+    console.error('[BATCH IMPORT FATAL ERROR]:', error);
+    if (error instanceof Error) {
+      console.error('[BATCH IMPORT FATAL ERROR] Stack:', error.stack);
+    }
+    console.error('[BATCH IMPORT FATAL ERROR] Full error:', JSON.stringify(error, null, 2));
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

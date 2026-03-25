@@ -265,11 +265,16 @@ export async function enrichWithAI(
   brandName: string,
   modelName: string
 ): Promise<AIEnrichmentResult> {
+  console.log(`[AI-ENRICHMENT] Starting for ${brandName} ${modelName}`);
+
   const aiResult = await callOpenAI(brandName, modelName);
+  console.log(`[AI-ENRICHMENT] OpenAI result:`, { success: aiResult.success, source: aiResult.source, hasData: !!aiResult.data });
 
   if (aiResult.success) {
+    console.log(`[AI-ENRICHMENT] Using OpenAI result`);
     return aiResult;
   }
 
+  console.log(`[AI-ENRICHMENT] Using fallback enrichment`);
   return await generateFallbackEnrichment(brandName, modelName);
 }
