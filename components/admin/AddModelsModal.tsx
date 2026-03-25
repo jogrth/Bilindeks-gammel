@@ -36,9 +36,22 @@ export default function AddModelsModal({ isOpen, onClose, onSuccess }: AddModels
     setResult(null);
 
     try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      console.log('Sending request with token:', session.access_token.substring(0, 20) + '...');
+
       const response = await fetch('/api/admin/models/batch-import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ input: input.trim() }),
       });
 

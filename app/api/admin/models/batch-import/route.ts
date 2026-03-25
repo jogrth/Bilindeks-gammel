@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 import { enrichModel } from '@/lib/services/enrichment';
 
 interface ImportDetail {
@@ -35,21 +35,53 @@ function generateSlug(text: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const authHeader = request.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!authHeader) {
+      console.error('Missing authorization header');
+      return NextResponse.json({ error: 'Unauthorized - Missing authorization header' }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', user.id)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader
+        }
+      }
+    });
+
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+
+    if (userError || !user) {
+      console.error('User error:', userError);
+      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
+    }
+
+    console.log('User found:', user.id);
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: adminCheck, error: adminError } = await supabaseAdmin
+      .from('system_admins')
+      .select('is_active')
+      .eq('user_id', user.id)
       .maybeSingle();
 
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (adminError) {
+      console.error('Admin check error:', adminError);
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    }
+
+    const isAdmin = adminCheck !== null && adminCheck.is_active === true;
+    console.log('Is admin:', isAdmin);
+
+    if (!isAdmin) {
+      console.error('User is not admin');
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -98,7 +130,7 @@ export async function POST(request: NextRequest) {
         let brand_id: string;
 
         const brandSlug = generateSlug(brandName);
-        const { data: existingBrand } = await supabase
+        const { data: existingBrand } = await supabaseAdmin
           .from('brands')
           .select('id')
           .eq('slug', brandSlug)
@@ -107,7 +139,7 @@ export async function POST(request: NextRequest) {
         if (existingBrand) {
           brand_id = existingBrand.id;
         } else {
-          const { data: newBrand, error: brandError } = await supabase
+          const { data: newBrand, error: brandError } = await supabaseAdmin
             .from('brands')
             .insert({
               name: brandName,
@@ -131,7 +163,7 @@ export async function POST(request: NextRequest) {
 
         const modelSlug = generateSlug(`${brandName} ${modelName}`);
 
-        const { data: existingModel } = await supabase
+        const { data: existingModel } = await supabaseAdmin
           .from('models')
           .select('id, name')
           .eq('slug', modelSlug)
@@ -148,7 +180,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const { data: newModel, error: modelError } = await supabase
+        const { data: newModel, error: modelError } = await supabaseAdmin
           .from('models')
           .insert({
             brand_id,
@@ -173,7 +205,7 @@ export async function POST(request: NextRequest) {
         const enrichmentResult = await enrichModel(newModel.id, modelSlug, brandName, modelName);
 
         const finalStatus = enrichmentResult.enrichment_level === 'full' ? 'needs_review' : 'draft';
-        await supabase
+        await supabaseAdmin
           .from('models')
           .update({ status: finalStatus })
           .eq('id', newModel.id);
