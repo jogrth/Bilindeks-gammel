@@ -264,11 +264,15 @@ export async function POST(request: NextRequest) {
           console.error(`[ERROR] Stack trace:`, error.stack);
         }
         console.error(`[ERROR] Full error object:`, JSON.stringify(error, null, 2));
+
+        const isDev = process.env.NODE_ENV === 'development';
+
         failed++;
         details.push({
           input: line,
           status: 'error',
           message: error instanceof Error ? error.message : 'Unknown error',
+          ...(isDev && error instanceof Error ? { stack: error.stack } : {})
         });
       }
     }
@@ -286,8 +290,20 @@ export async function POST(request: NextRequest) {
       console.error('[BATCH IMPORT FATAL ERROR] Stack:', error.stack);
     }
     console.error('[BATCH IMPORT FATAL ERROR] Full error:', JSON.stringify(error, null, 2));
+
+    // In development, return full error details for debugging
+    const isDev = process.env.NODE_ENV === 'development';
+
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : String(error),
+        ...(isDev && error instanceof Error ? {
+          stack: error.stack,
+          name: error.name,
+          fullError: String(error)
+        } : {})
+      },
       { status: 500 }
     );
   }

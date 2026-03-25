@@ -5,7 +5,8 @@
  * weighted criteria to provide relevant alternatives to users.
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 interface Model {
   id: string;
@@ -146,7 +147,10 @@ export async function generateSimilarCarsForModel(
   includeUnpublished: boolean = false,
   supabaseClient?: any
 ): Promise<SimilarityResult[]> {
-  const supabase = supabaseClient || await createClient();
+  const supabase = supabaseClient || createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   // Get the target model
   const { data: targetModel, error: targetError } = await supabase
@@ -198,7 +202,7 @@ export async function generateAllSimilarCars(): Promise<{
   inserted: number;
   error?: string;
 }> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   try {
     // Get all published models
@@ -255,7 +259,7 @@ export async function generateAllSimilarCars(): Promise<{
  * Get similar cars for a model (reads from database)
  */
 export async function getSimilarCars(modelId: string) {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   const { data, error } = await supabase
     .from('similar_models')

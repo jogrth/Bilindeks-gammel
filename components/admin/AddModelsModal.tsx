@@ -58,6 +58,10 @@ export default function AddModelsModal({ isOpen, onClose, onSuccess }: AddModels
       const data = await response.json();
 
       if (!response.ok) {
+        console.error('Import failed:', data);
+        if (data.stack) {
+          console.error('Server stack trace:', data.stack);
+        }
         throw new Error(data.error || 'Import failed');
       }
 
