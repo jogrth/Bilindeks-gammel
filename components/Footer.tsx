@@ -29,6 +29,11 @@ export function Footer() {
                 </a>
               </li>
               <li>
+                <a href="/artikler" className="hover:text-white transition-colors">
+                  Artikler
+                </a>
+              </li>
+              <li>
                 <a href="/login" className="hover:text-white transition-colors">
                   Admin Innlogging
                 </a>

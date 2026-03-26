@@ -54,11 +54,12 @@ export default async function ArticlePage({
     notFound();
   }
 
+  // Fetch related models - only published ones for public safety
   const { data: relatedModels } = await supabase
     .from('article_related_models')
     .select(`
       *,
-      models (
+      models!inner (
         id,
         name,
         slug,
@@ -68,6 +69,8 @@ export default async function ArticlePage({
         image_url,
         image_primary_url,
         intro_text,
+        review_status,
+        deleted_at,
         brands (
           name,
           slug
@@ -75,6 +78,8 @@ export default async function ArticlePage({
       )
     `)
     .eq('article_id', article.id)
+    .eq('models.review_status', 'published')
+    .is('models.deleted_at', null)
     .order('display_order');
 
   const { data: images } = await supabase
