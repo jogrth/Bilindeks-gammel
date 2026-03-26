@@ -266,3 +266,69 @@ export interface ModelSEOSection {
   created_at: string;
   updated_at: string;
 }
+
+export type ArticleType = 'seo_topic' | 'collection' | 'guide' | 'comparison' | 'news';
+
+export interface ArticleBodySection {
+  heading: string;
+  content: string;
+  order: number;
+}
+
+export interface ArticleFAQItem {
+  question: string;
+  answer: string;
+  order: number;
+}
+
+export interface Article {
+  id: string;
+  title: string;
+  slug: string;
+  ingress: string | null;
+  body_content: ArticleBodySection[] | null;
+  article_type: ArticleType | null;
+  topic: string | null;
+  tags: string[] | null;
+  main_image_url: string | null;
+  main_image_alt: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  faq_content: ArticleFAQItem[] | null;
+  quality_score: number;
+  review_status: ReviewStatus;
+  review_notes: string | null;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+}
+
+export interface ArticleImage {
+  id: string;
+  article_id: string;
+  url: string;
+  alt_text: string | null;
+  caption: string | null;
+  display_order: number;
+  is_body_image: boolean;
+  created_at: string;
+}
+
+export interface ArticleRelatedModel {
+  article_id: string;
+  model_id: string;
+  display_order: number;
+  featured: boolean;
+  description: string | null;
+  created_at: string;
+  model?: CarModel;
+}
+
+export interface ArticleRelatedArticle {
+  article_id: string;
+  related_article_id: string;
+  display_order: number;
+  created_at: string;
+  article?: Article;
+}

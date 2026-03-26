@@ -77,6 +77,12 @@ export default async function AdminDashboard() {
                   Se alle modeller
                 </Link>
                 <Link
+                  href="/admin/articles"
+                  className="block px-4 py-3 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                >
+                  Administrer artikler
+                </Link>
+                <Link
                   href="/admin/dealers"
                   className="block px-4 py-3 rounded-lg bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition"
                 >
