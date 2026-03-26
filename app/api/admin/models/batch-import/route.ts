@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
             name: modelName,
             slug: modelSlug,
             status: 'ingesting',
-            published: false,
+            review_status: 'draft',
           })
           .select('id')
           .single();

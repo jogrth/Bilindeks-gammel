@@ -29,8 +29,8 @@ type Model = {
   image_storage_path: string | null;
   intro_text: string | null;
   status: string | null;
-  published: boolean;
-  data_quality_score: number | null;
+  review_status: string;
+  quality_score: number | null;
   enrichment_source: string | null;
   enrichment_confidence: number | null;
   enrichment_notes: string | null;
@@ -305,18 +305,18 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
                       <div className="flex items-center">
                         <span
                           className={`text-sm font-medium ${getDataQualityColor(
-                            model.data_quality_score
+                            model.quality_score
                           )}`}
                         >
-                          {model.data_quality_score || 0}%
+                          {model.quality_score || 0}%
                         </span>
                         <span className="ml-2 text-xs text-slate-500">
-                          {getDataQualityLabel(model.data_quality_score)}
+                          {getDataQualityLabel(model.quality_score)}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {model.published ? (
+                      {model.review_status === 'published' ? (
                         <CheckCircle className="w-5 h-5 text-green-600" />
                       ) : (
                         <AlertCircle className="w-5 h-5 text-slate-400" />

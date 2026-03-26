@@ -39,9 +39,9 @@ export default async function AdminModelsPage({
 
   // Apply filters
   if (publishedFilter === 'true') {
-    query = query.eq('published', true);
+    query = query.eq('review_status', 'published');
   } else if (publishedFilter === 'false') {
-    query = query.eq('published', false);
+    query = query.neq('review_status', 'published');
   }
 
   if (brandFilter) {
@@ -63,17 +63,20 @@ export default async function AdminModelsPage({
   // Get stats
   const { count: totalCount } = await supabase
     .from('models')
-    .select('*', { count: 'exact', head: true });
+    .select('*', { count: 'exact', head: true })
+    .is('deleted_at', null);
 
   const { count: publishedCount } = await supabase
     .from('models')
     .select('*', { count: 'exact', head: true })
-    .eq('published', true);
+    .eq('review_status', 'published')
+    .is('deleted_at', null);
 
   const { count: draftCount } = await supabase
     .from('models')
     .select('*', { count: 'exact', head: true })
-    .eq('published', false);
+    .eq('review_status', 'draft')
+    .is('deleted_at', null);
 
   const { count: needsReviewCount } = await supabase
     .from('models')

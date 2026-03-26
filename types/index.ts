@@ -5,6 +5,8 @@ export interface Brand {
   created_at: string;
 }
 
+export type ReviewStatus = 'draft' | 'needs_review' | 'published' | 'unpublished';
+
 export interface CarModel {
   id: string;
   brand_id: string;
@@ -35,7 +37,8 @@ export interface CarModel {
   status: ModelStatus;
   confidence_score: number | null;
   quality_score: number | null;
-  review_status: string | null;
+  review_status: ReviewStatus;
+  deleted_at: string | null;
   needs_review_reasons: string[] | null;
   spec_confidence: Record<string, number> | null;
   spec_sources: Record<string, string> | null;

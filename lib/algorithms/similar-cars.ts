@@ -24,7 +24,8 @@ interface Model {
   price_from_nok: number | null;
   battery_kwh: number | null;
   power_hp: number | null;
-  published: boolean;
+  review_status: string;
+  deleted_at: string | null;
 }
 
 interface SimilarityResult {
@@ -193,14 +194,15 @@ export async function generateSimilarCarsForModel(
     throw new Error('Model not found');
   }
 
-  // Get all other models (published or all depending on flag)
+  // Get all other models (only published and non-deleted for public similarity)
   let query = supabase
     .from('models')
     .select('*')
-    .neq('id', modelId);
+    .neq('id', modelId)
+    .is('deleted_at', null);
 
   if (!includeUnpublished) {
-    query = query.eq('published', true);
+    query = query.eq('review_status', 'published');
   }
 
   const { data: allModels, error: modelsError } = await query;
@@ -235,11 +237,12 @@ export async function generateAllSimilarCars(): Promise<{
   const supabase = await createServerClient();
 
   try {
-    // Get all published models
+    // Get all published models (non-deleted)
     const { data: models, error: modelsError } = await supabase
       .from('models')
       .select('id')
-      .eq('published', true);
+      .eq('review_status', 'published')
+      .is('deleted_at', null);
 
     if (modelsError || !models) {
       return { success: false, processed: 0, inserted: 0, error: modelsError?.message };
@@ -307,7 +310,9 @@ export async function getSimilarCars(modelId: string) {
         price_from_nok,
         range_wltp_km,
         image_url,
-        intro_text
+        intro_text,
+        review_status,
+        deleted_at
       )
     `)
     .eq('model_id', modelId)
@@ -315,10 +320,16 @@ export async function getSimilarCars(modelId: string) {
     .order('similarity_score', { ascending: false })
     .limit(6);
 
+  // Filter out deleted and non-published models from results
+  const filtered = (data || []).filter((item: any) => {
+    const model = item.similar_model;
+    return model && model.review_status === 'published' && model.deleted_at === null;
+  });
+
   if (error) {
     console.error('Error fetching similar cars:', error);
     return [];
   }
 
-  return data;
+  return filtered;
 }

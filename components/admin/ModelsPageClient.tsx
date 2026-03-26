@@ -30,8 +30,8 @@ type Model = {
   image_storage_path: string | null;
   intro_text: string | null;
   status: string | null;
-  published: boolean;
-  data_quality_score: number | null;
+  review_status: string;
+  quality_score: number | null;
   enrichment_source: string | null;
   enrichment_confidence: number | null;
   enrichment_notes: string | null;

@@ -204,11 +204,11 @@ export async function getModelByIdForAdmin(id: string) {
 export async function toggleModelPublished(modelId: string, published: boolean) {
   const supabase = await createClient();
 
-  const status = published ? 'published' : 'draft';
+  const review_status = published ? 'published' : 'draft';
 
   const { error } = await supabase
     .from('models')
-    .update({ published, status })
+    .update({ review_status })
     .eq('id', modelId);
 
   if (error) {
@@ -236,7 +236,7 @@ export async function createModel(formData: FormData) {
     drive_type: formData.get('drive_type') as string || null,
     intro_text: formData.get('intro_text') as string || null,
     image_url: formData.get('image_url') as string || null,
-    published: formData.get('published') === 'true',
+    review_status: formData.get('published') === 'true' ? 'published' : 'draft',
     status: formData.get('published') === 'true' ? 'published' : 'draft',
   };
 

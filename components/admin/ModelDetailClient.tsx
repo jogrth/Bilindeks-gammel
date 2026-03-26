@@ -99,16 +99,19 @@ export default function ModelDetailClient({
       const response = await fetch(`/api/admin/models/${model.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ published: true, status: 'published' }),
+        body: JSON.stringify({ review_status: 'published' }),
       });
 
-      if (!response.ok) throw new Error('Failed to publish');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to publish');
+      }
 
       alert('Modellen er publisert');
       router.refresh();
     } catch (error) {
       console.error('Error publishing:', error);
-      alert('Feil ved publisering');
+      alert(`Feil ved publisering: ${error instanceof Error ? error.message : 'Ukjent feil'}`);
     }
   };
 
@@ -119,7 +122,7 @@ export default function ModelDetailClient({
       const response = await fetch(`/api/admin/models/${model.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ published: false, status: 'draft' }),
+        body: JSON.stringify({ review_status: 'unpublished' }),
       });
 
       if (!response.ok) throw new Error('Failed to unpublish');
@@ -201,7 +204,7 @@ export default function ModelDetailClient({
           <div>
             <div className="text-sm font-medium text-slate-600">Publisert</div>
             <div className="mt-2">
-              {model.published ? (
+              {model.review_status === 'published' ? (
                 <CheckCircle className="w-6 h-6 text-green-600" />
               ) : (
                 <XCircle className="w-6 h-6 text-slate-400" />
@@ -543,13 +546,13 @@ export default function ModelDetailClient({
                     <div>
                       <div className="font-medium text-slate-900">Publisert</div>
                       <div className="text-sm text-slate-600">
-                        {model.published
+                        {model.review_status === 'published'
                           ? 'Modellen er synlig for brukere'
                           : 'Modellen er skjult for brukere'}
                       </div>
                     </div>
                     <div>
-                      {model.published ? (
+                      {model.review_status === 'published' ? (
                         <CheckCircle className="w-8 h-8 text-green-600" />
                       ) : (
                         <XCircle className="w-8 h-8 text-slate-400" />
@@ -601,7 +604,7 @@ export default function ModelDetailClient({
                 </div>
 
                 <div className="mt-6 flex gap-4">
-                  {model.published ? (
+                  {model.review_status === 'published' ? (
                     <Button onClick={handleUnpublish} variant="secondary">
                       <EyeOff className="w-4 h-4 mr-2" />
                       Avpubliser
@@ -618,7 +621,7 @@ export default function ModelDetailClient({
                   )}
                 </div>
 
-                {model.data_quality_score < 60 && !model.published && (
+                {(model.quality_score || 0) < 60 && model.review_status !== 'published' && (
                   <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                     <p className="text-sm text-amber-800">
                       Datakvaliteten er for lav til å publisere. Fyll ut flere felt for å øke
