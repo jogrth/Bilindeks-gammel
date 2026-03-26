@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
-import { FileText, CircleCheck as CheckCircle, Circle as XCircle, Plus } from 'lucide-react';
+import { FileText, CircleCheck as CheckCircle, Circle as XCircle, Plus, Eye, Trash2 } from 'lucide-react';
 import type { Article } from '@/types';
 
 type Props = {
@@ -25,6 +25,7 @@ type Props = {
 export default function ArticlesListClient({ articles, currentFilters, stats }: Props) {
   const router = useRouter();
   const [showNewArticleModal, setShowNewArticleModal] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const handleFilterChange = (filterType: string, value: string) => {
     const params = new URLSearchParams();
@@ -60,6 +61,30 @@ export default function ArticlesListClient({ articles, currentFilters, stats }: 
       unpublished: 'Avpublisert',
     };
     return labels[status as keyof typeof labels] || status;
+  };
+
+  const handleDelete = async (articleId: string, articleTitle: string) => {
+    if (!confirm(`Er du sikker på at du vil slette "${articleTitle}"? Denne handlingen kan ikke angres.`)) {
+      return;
+    }
+
+    setDeleting(articleId);
+    try {
+      const response = await fetch(`/api/admin/articles/${articleId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete article');
+      }
+
+      router.refresh();
+    } catch (error) {
+      console.error('Error deleting article:', error);
+      alert('Feil ved sletting av artikkel');
+    } finally {
+      setDeleting(null);
+    }
   };
 
   return (
@@ -131,6 +156,9 @@ export default function ArticlesListClient({ articles, currentFilters, stats }: 
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 Opprettet
               </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">
+                Handlinger
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -170,11 +198,32 @@ export default function ArticlesListClient({ articles, currentFilters, stats }: 
                 <td className="px-6 py-4 text-sm text-slate-600">
                   {new Date(article.created_at).toLocaleDateString('nb-NO')}
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div className="flex items-center justify-end gap-3">
+                    <Link
+                      href={`/artikler/${article.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-slate-600 hover:text-slate-900 inline-flex items-center gap-1"
+                      title="Se artikkel"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(article.id, article.title)}
+                      disabled={deleting === article.id}
+                      className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Slett artikkel"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
             {articles.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                   <FileText className="w-12 h-12 mx-auto mb-4 text-slate-300" />
                   <div className="text-lg font-medium mb-2">Ingen artikler ennå</div>
                   <div className="text-sm">Klikk på «Ny artikkel» for å komme i gang</div>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { formatPrice } from '@/lib/formatting';
-import { ChevronDown, ChevronUp, CircleAlert as AlertCircle, CircleCheck as CheckCircle, ExternalLink } from 'lucide-react';
+import { ChevronDown, ChevronUp, CircleAlert as AlertCircle, CircleCheck as CheckCircle, ExternalLink, Eye, Trash2 } from 'lucide-react';
 
 type Brand = {
   id: string;
@@ -54,6 +54,7 @@ type Props = {
 export default function ModelsListClient({ models, brands, currentFilters }: Props) {
   const router = useRouter();
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const handleFilterChange = (filterType: string, value: string) => {
     const params = new URLSearchParams();
@@ -112,6 +113,30 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
       partial: 'bg-amber-100 text-amber-700',
     };
     return colors[source || ''] || 'bg-slate-100 text-slate-700';
+  };
+
+  const handleDelete = async (modelId: string, modelName: string) => {
+    if (!confirm(`Er du sikker på at du vil slette "${modelName}"? Denne handlingen kan ikke angres.`)) {
+      return;
+    }
+
+    setDeleting(modelId);
+    try {
+      const response = await fetch(`/api/admin/models/${modelId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete model');
+      }
+
+      router.refresh();
+    } catch (error) {
+      console.error('Error deleting model:', error);
+      alert('Feil ved sletting av modell');
+    } finally {
+      setDeleting(null);
+    }
   };
 
   return (
@@ -326,14 +351,37 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
                       {new Date(model.updated_at).toLocaleDateString('nb-NO')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        href={`/admin/models/${model.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-sky-700 hover:text-sky-900 inline-flex items-center gap-1"
-                      >
-                        Rediger
-                        <ExternalLink className="w-3 h-3" />
-                      </Link>
+                      <div className="flex items-center justify-end gap-3">
+                        <Link
+                          href={`/cars/${model.brands?.slug}-${model.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-slate-600 hover:text-slate-900 inline-flex items-center gap-1"
+                          title="Se modellside"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Link>
+                        <Link
+                          href={`/admin/models/${model.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-sky-700 hover:text-sky-900 inline-flex items-center gap-1"
+                        >
+                          Rediger
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(model.id, `${model.brands?.name} ${model.name}`);
+                          }}
+                          disabled={deleting === model.id}
+                          className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Slett modell"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   {expandedRow === model.id && (
