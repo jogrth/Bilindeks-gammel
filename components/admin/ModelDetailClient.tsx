@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
-import { Sparkles, CircleCheck as CheckCircle, Circle as XCircle, Upload, Image as ImageIcon, Save, Eye, EyeOff } from 'lucide-react';
+import { Sparkles, CircleCheck as CheckCircle, Circle as XCircle, Upload, Image as ImageIcon, Save, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { formatPrice } from '@/lib/formatting';
 import ModelRoutingTab from './ModelRoutingTab';
 import ModelSimilarTab from './ModelSimilarTab';
@@ -132,6 +132,24 @@ export default function ModelDetailClient({
     } catch (error) {
       console.error('Error unpublishing:', error);
       alert('Feil ved avpublisering');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Er du sikker på at du vil slette denne modellen? Den kan gjenopprettes senere.')) return;
+
+    try {
+      const response = await fetch(`/api/admin/models/${model.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete');
+
+      alert('Modellen er slettet');
+      router.push('/admin/models');
+    } catch (error) {
+      console.error('Error deleting:', error);
+      alert('Feil ved sletting');
     }
   };
 
@@ -617,6 +635,13 @@ export default function ModelDetailClient({
                     >
                       <Eye className="w-4 h-4 mr-2" />
                       Publiser modell
+                    </Button>
+                  )}
+
+                  {!model.deleted_at && (
+                    <Button onClick={handleDelete} variant="secondary" className="ml-auto">
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Slett modell
                     </Button>
                   )}
                 </div>

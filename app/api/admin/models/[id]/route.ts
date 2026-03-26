@@ -81,3 +81,31 @@ export async function PATCH(
 
   return Response.json(data);
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAdmin();
+  } catch {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('models')
+    .update({
+      deleted_at: new Date().toISOString(),
+      review_status: 'unpublished',
+    })
+    .eq('id', id);
+
+  if (error) {
+    return Response.json({ error: error.message }, { status: 400 });
+  }
+
+  return Response.json({ success: true });
+}

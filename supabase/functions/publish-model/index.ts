@@ -53,7 +53,7 @@ Deno.serve(async (req: Request) => {
     const { data: updatedModel, error: updateError } = await supabase
       .from('models')
       .update({
-        published: true,
+        review_status: 'published',
         status: 'published',
       })
       .eq('id', payload.model_id)

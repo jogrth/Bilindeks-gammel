@@ -266,11 +266,51 @@ export async function deleteModel(modelId: string) {
 
   const { error } = await supabase
     .from('models')
-    .delete()
+    .update({
+      deleted_at: new Date().toISOString(),
+      review_status: 'unpublished',
+    })
     .eq('id', modelId);
 
   if (error) {
     throw new Error(`Failed to delete model: ${error.message}`);
+  }
+
+  revalidatePath('/admin/models');
+  revalidatePath('/cars');
+  return { success: true };
+}
+
+export async function unpublishModel(modelId: string) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('models')
+    .update({ review_status: 'unpublished' })
+    .eq('id', modelId);
+
+  if (error) {
+    throw new Error(`Failed to unpublish model: ${error.message}`);
+  }
+
+  revalidatePath('/admin/models');
+  revalidatePath('/cars');
+  return { success: true };
+}
+
+export async function restoreModel(modelId: string) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('models')
+    .update({
+      deleted_at: null,
+      review_status: 'draft',
+    })
+    .eq('id', modelId);
+
+  if (error) {
+    throw new Error(`Failed to restore model: ${error.message}`);
   }
 
   revalidatePath('/admin/models');

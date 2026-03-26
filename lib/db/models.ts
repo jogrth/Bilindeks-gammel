@@ -13,7 +13,8 @@ export async function getPublishedModels(filters?: CarFilters) {
         slug
       )
     `)
-    .eq('published', true)
+    .eq('review_status', 'published')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (filters?.brandId) {
@@ -107,7 +108,8 @@ export async function getModelBySlug(slug: string) {
       )
     `)
     .eq('slug', slug)
-    .eq('published', true)
+    .eq('review_status', 'published')
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (error || !data) {
