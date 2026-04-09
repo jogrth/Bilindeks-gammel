@@ -63,7 +63,7 @@ export function EnrichedModelPage({
           <CarDetailClient model={model} />
 
           {seoSections.length > 0 && (
-            <ModelSEOContent sections={seoSections} />
+            <ModelSEOContent sections={seoSections} model={model} />
           )}
 
           {faqs.length > 0 && (

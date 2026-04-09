@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { enrichModel } from '@/lib/services/enrichment';
+import { fetchAndSaveCarImage } from '@/lib/services/image-management';
 
 interface ImportDetail {
   input: string;
@@ -245,6 +246,10 @@ export async function POST(request: NextRequest) {
           });
           continue;
         }
+
+        console.log(`[STEP 9] Fetching car image for model ${newModel.id}`);
+        currentStep = 'fetching_image';
+        await fetchAndSaveCarImage(newModel.id, brandName, modelName);
 
         console.log(`[STEP 10] Updating model status to final state`);
         const finalStatus = enrichmentResult.enrichment_level === 'full' ? 'needs_review' : 'draft';
