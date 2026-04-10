@@ -5,6 +5,8 @@ export interface Brand {
   created_at: string;
 }
 
+export type ReviewStatus = 'draft' | 'needs_review' | 'published' | 'unpublished';
+
 export interface CarModel {
   id: string;
   brand_id: string;
@@ -12,6 +14,7 @@ export interface CarModel {
   brand_slug?: string;
   name: string;
   slug: string;
+  segment: string | null;
   body_type: string | null;
   drivetrain: string | null;
   drive_type: string | null;
@@ -21,12 +24,27 @@ export interface CarModel {
   towing_kg: number | null;
   range_wltp_km: number | null;
   charge_speed_kw: number | null;
+  battery_kwh: number | null;
+  power_hp: number | null;
+  acceleration_0_100: number | null;
+  model_year_from: number | null;
+  model_year_to: number | null;
   price_from_nok: number | null;
   image_url: string | null;
+  image_primary_url: string | null;
   intro_text: string | null;
   source_url: string | null;
   status: ModelStatus;
   confidence_score: number | null;
+  quality_score: number | null;
+  review_status: ReviewStatus;
+  deleted_at: string | null;
+  needs_review_reasons: string[] | null;
+  spec_confidence: Record<string, number> | null;
+  spec_sources: Record<string, string> | null;
+  enrichment_source: string | null;
+  enrichment_confidence: number | null;
+  enrichment_notes: string | null;
   published: boolean;
   created_at: string;
   updated_at: string;
@@ -57,10 +75,14 @@ export interface Dealer {
   email: string;
   phone: string | null;
   brand: string | null;
+  brand_preference: string | null;
   active: boolean;
   price_per_lead: number | null;
   postcode_area: string | null;
+  postcode_from: number | null;
+  postcode_to: number | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface ModelDealer {
@@ -137,6 +159,8 @@ export interface LeadFormData {
 }
 
 export interface CarFilters {
+  brandId?: string;
+  modelId?: string;
   bodyType?: string;
   drivetrain?: string;
   driveType?: string;
@@ -189,3 +213,122 @@ export const FINANCING_OPTIONS = [
   'Leasing',
   'Usikker',
 ] as const;
+
+export interface ModelImage {
+  id: string;
+  model_id: string;
+  url: string;
+  alt_text: string | null;
+  caption: string | null;
+  source: string | null;
+  is_primary: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModelTrimLevel {
+  id: string;
+  model_id: string;
+  name: string;
+  price_from_nok: number | null;
+  range_wltp_km: number | null;
+  drivetrain: string | null;
+  battery_kwh: number | null;
+  power_hp: number | null;
+  features: string[];
+  display_order: number;
+  is_verified: boolean;
+  source: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModelFAQ {
+  id: string;
+  model_id: string;
+  question: string;
+  answer: string;
+  display_order: number;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModelSEOSection {
+  id: string;
+  model_id: string;
+  section_key: string;
+  heading: string;
+  content: string;
+  display_order: number;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ArticleType = 'seo_topic' | 'collection' | 'guide' | 'comparison' | 'news';
+
+export interface ArticleBodySection {
+  heading: string;
+  content: string;
+  order: number;
+}
+
+export interface ArticleFAQItem {
+  question: string;
+  answer: string;
+  order: number;
+}
+
+export interface Article {
+  id: string;
+  title: string;
+  slug: string;
+  ingress: string | null;
+  body_content: ArticleBodySection[] | null;
+  article_type: ArticleType | null;
+  topic: string | null;
+  tags: string[] | null;
+  main_image_url: string | null;
+  main_image_alt: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  faq_content: ArticleFAQItem[] | null;
+  quality_score: number;
+  review_status: ReviewStatus;
+  review_notes: string | null;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+}
+
+export interface ArticleImage {
+  id: string;
+  article_id: string;
+  url: string;
+  alt_text: string | null;
+  caption: string | null;
+  display_order: number;
+  is_body_image: boolean;
+  created_at: string;
+}
+
+export interface ArticleRelatedModel {
+  article_id: string;
+  model_id: string;
+  display_order: number;
+  featured: boolean;
+  description: string | null;
+  created_at: string;
+  model?: CarModel;
+}
+
+export interface ArticleRelatedArticle {
+  article_id: string;
+  related_article_id: string;
+  display_order: number;
+  created_at: string;
+  article?: Article;
+}

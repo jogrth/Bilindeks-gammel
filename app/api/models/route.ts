@@ -10,6 +10,12 @@ export async function GET(request: NextRequest) {
 
   const filters: CarFilters = {};
 
+  const brandId = searchParams.get('brandId');
+  if (brandId) filters.brandId = brandId;
+
+  const modelId = searchParams.get('modelId');
+  if (modelId) filters.modelId = modelId;
+
   const bodyType = searchParams.get('bodyType');
   if (bodyType) filters.bodyType = bodyType;
 

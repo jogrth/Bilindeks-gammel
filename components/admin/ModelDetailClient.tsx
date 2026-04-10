@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
-import { Sparkles, CircleCheck as CheckCircle, Circle as XCircle, Upload, Image as ImageIcon, Save, Eye, EyeOff } from 'lucide-react';
+import { Sparkles, CircleCheck as CheckCircle, Circle as XCircle, Upload, Image as ImageIcon, Save, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { formatPrice } from '@/lib/formatting';
+import ModelRoutingTab from './ModelRoutingTab';
+import ModelSimilarTab from './ModelSimilarTab';
 
 type Model = any;
 type Dealer = any;
@@ -97,16 +99,19 @@ export default function ModelDetailClient({
       const response = await fetch(`/api/admin/models/${model.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ published: true, status: 'published' }),
+        body: JSON.stringify({ review_status: 'published' }),
       });
 
-      if (!response.ok) throw new Error('Failed to publish');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to publish');
+      }
 
       alert('Modellen er publisert');
       router.refresh();
     } catch (error) {
       console.error('Error publishing:', error);
-      alert('Feil ved publisering');
+      alert(`Feil ved publisering: ${error instanceof Error ? error.message : 'Ukjent feil'}`);
     }
   };
 
@@ -117,7 +122,7 @@ export default function ModelDetailClient({
       const response = await fetch(`/api/admin/models/${model.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ published: false, status: 'draft' }),
+        body: JSON.stringify({ review_status: 'unpublished' }),
       });
 
       if (!response.ok) throw new Error('Failed to unpublish');
@@ -127,6 +132,24 @@ export default function ModelDetailClient({
     } catch (error) {
       console.error('Error unpublishing:', error);
       alert('Feil ved avpublisering');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Er du sikker på at du vil slette denne modellen? Den kan gjenopprettes senere.')) return;
+
+    try {
+      const response = await fetch(`/api/admin/models/${model.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete');
+
+      alert('Modellen er slettet');
+      router.push('/admin/models');
+    } catch (error) {
+      console.error('Error deleting:', error);
+      alert('Feil ved sletting');
     }
   };
 
@@ -199,7 +222,7 @@ export default function ModelDetailClient({
           <div>
             <div className="text-sm font-medium text-slate-600">Publisert</div>
             <div className="mt-2">
-              {model.published ? (
+              {model.review_status === 'published' ? (
                 <CheckCircle className="w-6 h-6 text-green-600" />
               ) : (
                 <XCircle className="w-6 h-6 text-slate-400" />
@@ -541,13 +564,13 @@ export default function ModelDetailClient({
                     <div>
                       <div className="font-medium text-slate-900">Publisert</div>
                       <div className="text-sm text-slate-600">
-                        {model.published
+                        {model.review_status === 'published'
                           ? 'Modellen er synlig for brukere'
                           : 'Modellen er skjult for brukere'}
                       </div>
                     </div>
                     <div>
-                      {model.published ? (
+                      {model.review_status === 'published' ? (
                         <CheckCircle className="w-8 h-8 text-green-600" />
                       ) : (
                         <XCircle className="w-8 h-8 text-slate-400" />
@@ -570,10 +593,36 @@ export default function ModelDetailClient({
                       {model.data_quality_score}%
                     </div>
                   </div>
+
+                  {(model as any).enrichment_source && (
+                    <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                      <div>
+                        <div className="font-medium text-slate-900">Data-kilde</div>
+                        <div className="text-sm text-slate-600">
+                          {(model as any).enrichment_source === 'known_dataset' && 'Kuratert database'}
+                          {(model as any).enrichment_source === 'openai_generated' && 'OpenAI-generert'}
+                          {(model as any).enrichment_source === 'generic_fallback' && 'Generisk fallback'}
+                          {(model as any).enrichment_source === 'ai_generated' && 'AI-generert'}
+                          {(model as any).enrichment_source === 'external_api' && 'Ekstern API'}
+                          {(model as any).enrichment_source === 'partial' && 'Delvis automatisk'}
+                          {(model as any).enrichment_notes && (
+                            <div className="mt-1 text-xs text-slate-500">
+                              {(model as any).enrichment_notes}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {(model as any).enrichment_confidence && (
+                        <div className="text-2xl font-bold text-blue-600">
+                          {Math.round((model as any).enrichment_confidence * 100)}%
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-6 flex gap-4">
-                  {model.published ? (
+                  {model.review_status === 'published' ? (
                     <Button onClick={handleUnpublish} variant="secondary">
                       <EyeOff className="w-4 h-4 mr-2" />
                       Avpubliser
@@ -588,9 +637,16 @@ export default function ModelDetailClient({
                       Publiser modell
                     </Button>
                   )}
+
+                  {!model.deleted_at && (
+                    <Button onClick={handleDelete} variant="secondary" className="ml-auto">
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Slett modell
+                    </Button>
+                  )}
                 </div>
 
-                {model.data_quality_score < 60 && !model.published && (
+                {(model.quality_score || 0) < 60 && model.review_status !== 'published' && (
                   <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                     <p className="text-sm text-amber-800">
                       Datakvaliteten er for lav til å publisere. Fyll ut flere felt for å øke
@@ -602,17 +658,21 @@ export default function ModelDetailClient({
             </div>
           )}
 
-          {/* Routing and Similar tabs remain the same */}
           {activeTab === 'routing' && (
-            <div className="text-center py-12 text-slate-600">
-              Lead routing-funksjonalitet kommer her
-            </div>
+            <ModelRoutingTab
+              modelId={model.id}
+              currentDealers={initialDealers}
+              allDealers={allDealers}
+              onRefresh={() => router.refresh()}
+            />
           )}
 
           {activeTab === 'similar' && (
-            <div className="text-center py-12 text-slate-600">
-              Lignende biler-funksjonalitet kommer her
-            </div>
+            <ModelSimilarTab
+              modelId={model.id}
+              similarModels={initialSimilarModels}
+              onRefresh={() => router.refresh()}
+            />
           )}
         </div>
       </div>

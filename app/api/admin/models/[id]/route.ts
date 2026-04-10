@@ -63,7 +63,7 @@ export async function PATCH(
   if (body.model_year_start !== undefined) updateData.model_year_start = body.model_year_start ? parseInt(body.model_year_start) : null;
   if (body.model_year_end !== undefined) updateData.model_year_end = body.model_year_end ? parseInt(body.model_year_end) : null;
   if (body.review_notes !== undefined) updateData.review_notes = body.review_notes;
-  if (body.published !== undefined) updateData.published = body.published;
+  if (body.review_status !== undefined) updateData.review_status = body.review_status;
   if (body.status !== undefined) updateData.status = body.status;
   if (body.image_url !== undefined) updateData.image_url = body.image_url;
   if (body.image_storage_path !== undefined) updateData.image_storage_path = body.image_storage_path;
@@ -80,4 +80,32 @@ export async function PATCH(
   }
 
   return Response.json(data);
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAdmin();
+  } catch {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('models')
+    .update({
+      deleted_at: new Date().toISOString(),
+      review_status: 'unpublished',
+    })
+    .eq('id', id);
+
+  if (error) {
+    return Response.json({ error: error.message }, { status: 400 });
+  }
+
+  return Response.json({ success: true });
 }

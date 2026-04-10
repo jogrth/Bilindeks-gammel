@@ -13,7 +13,7 @@ export default async function AdminDashboard() {
   const supabase = await createClient();
 
   const [modelsResult, leadsResult, dealersResult, jobsResult] = await Promise.all([
-    supabase.from('models').select('id, status, published').order('created_at', { ascending: false }),
+    supabase.from('models').select('id, status, review_status').order('created_at', { ascending: false }),
     supabase.from('leads').select('id, created_at').order('created_at', { ascending: false }).limit(10),
     supabase.from('dealers').select('id, active'),
     supabase.from('ingestion_jobs').select('*').order('created_at', { ascending: false }).limit(10),
@@ -24,7 +24,7 @@ export default async function AdminDashboard() {
   const dealers = dealersResult.data || [];
   const jobs = jobsResult.data || [];
 
-  const totalPublished = models.filter(m => m.published).length;
+  const totalPublished = models.filter(m => m.review_status === 'published').length;
   const needsReview = models.filter(m => m.status === 'needs_review').length;
   const recentLeads = leads.filter(l => {
     const diff = Date.now() - new Date(l.created_at).getTime();
@@ -77,6 +77,12 @@ export default async function AdminDashboard() {
                   Se alle modeller
                 </Link>
                 <Link
+                  href="/admin/articles"
+                  className="block px-4 py-3 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                >
+                  Administrer artikler
+                </Link>
+                <Link
                   href="/admin/dealers"
                   className="block px-4 py-3 rounded-lg bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition"
                 >
@@ -87,12 +93,6 @@ export default async function AdminDashboard() {
                   className="block px-4 py-3 rounded-lg bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition"
                 >
                   Se leads
-                </Link>
-                <Link
-                  href="/admin/jobs"
-                  className="block px-4 py-3 rounded-lg bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition"
-                >
-                  Se jobber
                 </Link>
               </div>
             </div>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { formatPrice } from '@/lib/formatting';
-import { ChevronDown, ChevronUp, CircleAlert as AlertCircle, CircleCheck as CheckCircle, ExternalLink } from 'lucide-react';
+import { ChevronDown, ChevronUp, CircleAlert as AlertCircle, CircleCheck as CheckCircle, ExternalLink, Eye, Trash2 } from 'lucide-react';
 
 type Brand = {
   id: string;
@@ -29,8 +29,11 @@ type Model = {
   image_storage_path: string | null;
   intro_text: string | null;
   status: string | null;
-  published: boolean;
-  data_quality_score: number | null;
+  review_status: string;
+  quality_score: number | null;
+  enrichment_source: string | null;
+  enrichment_confidence: number | null;
+  enrichment_notes: string | null;
   model_year_start: number | null;
   model_year_end: number | null;
   created_at: string;
@@ -51,6 +54,7 @@ type Props = {
 export default function ModelsListClient({ models, brands, currentFilters }: Props) {
   const router = useRouter();
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const handleFilterChange = (filterType: string, value: string) => {
     const params = new URLSearchParams();
@@ -84,6 +88,55 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
     if (score >= 80) return 'God';
     if (score >= 60) return 'Middels';
     return 'Mangler data';
+  };
+
+  const getEnrichmentSourceLabel = (source: string | null) => {
+    if (!source || source === 'manual') return null;
+    const labels: Record<string, string> = {
+      known_dataset: 'Database',
+      openai_generated: 'OpenAI',
+      generic_fallback: 'Fallback',
+      ai_generated: 'AI',
+      external_api: 'API',
+      partial: 'Delvis',
+    };
+    return labels[source] || source;
+  };
+
+  const getEnrichmentSourceColor = (source: string | null) => {
+    const colors: Record<string, string> = {
+      known_dataset: 'bg-blue-100 text-blue-700',
+      openai_generated: 'bg-purple-100 text-purple-700',
+      generic_fallback: 'bg-amber-100 text-amber-700',
+      ai_generated: 'bg-purple-100 text-purple-700',
+      external_api: 'bg-green-100 text-green-700',
+      partial: 'bg-amber-100 text-amber-700',
+    };
+    return colors[source || ''] || 'bg-slate-100 text-slate-700';
+  };
+
+  const handleDelete = async (modelId: string, modelName: string) => {
+    if (!confirm(`Er du sikker på at du vil slette "${modelName}"? Denne handlingen kan ikke angres.`)) {
+      return;
+    }
+
+    setDeleting(modelId);
+    try {
+      const response = await fetch(`/api/admin/models/${modelId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete model');
+      }
+
+      router.refresh();
+    } catch (error) {
+      console.error('Error deleting model:', error);
+      alert('Feil ved sletting av modell');
+    } finally {
+      setDeleting(null);
+    }
   };
 
   return (
@@ -165,6 +218,9 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Kilde
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Datakvalitet
@@ -254,21 +310,38 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
+                      {getEnrichmentSourceLabel(model.enrichment_source) && (
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getEnrichmentSourceColor(
+                            model.enrichment_source
+                          )}`}
+                          title={model.enrichment_notes || ''}
+                        >
+                          {getEnrichmentSourceLabel(model.enrichment_source)}
+                          {model.enrichment_confidence && (model.enrichment_source === 'ai_generated' || model.enrichment_source === 'openai_generated' || model.enrichment_source === 'generic_fallback') && (
+                            <span className="ml-1 opacity-75">
+                              {Math.round(model.enrichment_confidence * 100)}%
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <span
                           className={`text-sm font-medium ${getDataQualityColor(
-                            model.data_quality_score
+                            model.quality_score
                           )}`}
                         >
-                          {model.data_quality_score || 0}%
+                          {model.quality_score || 0}%
                         </span>
                         <span className="ml-2 text-xs text-slate-500">
-                          {getDataQualityLabel(model.data_quality_score)}
+                          {getDataQualityLabel(model.quality_score)}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {model.published ? (
+                      {model.review_status === 'published' ? (
                         <CheckCircle className="w-5 h-5 text-green-600" />
                       ) : (
                         <AlertCircle className="w-5 h-5 text-slate-400" />
@@ -278,14 +351,37 @@ export default function ModelsListClient({ models, brands, currentFilters }: Pro
                       {new Date(model.updated_at).toLocaleDateString('nb-NO')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        href={`/admin/models/${model.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-sky-700 hover:text-sky-900 inline-flex items-center gap-1"
-                      >
-                        Rediger
-                        <ExternalLink className="w-3 h-3" />
-                      </Link>
+                      <div className="flex items-center justify-end gap-3">
+                        <Link
+                          href={`/cars/${model.brands?.slug}-${model.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-slate-600 hover:text-slate-900 inline-flex items-center gap-1"
+                          title="Se modellside"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Link>
+                        <Link
+                          href={`/admin/models/${model.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-sky-700 hover:text-sky-900 inline-flex items-center gap-1"
+                        >
+                          Rediger
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(model.id, `${model.brands?.name} ${model.name}`);
+                          }}
+                          disabled={deleting === model.id}
+                          className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Slett modell"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   {expandedRow === model.id && (

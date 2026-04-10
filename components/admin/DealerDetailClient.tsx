@@ -36,7 +36,7 @@ export default function DealerDetailClient({ params }: DealerDetailClientProps) 
 
       setDealer(dealerData.dealer);
       setLinkedModels(dealerData.models || []);
-      setAllModels(allModelsData.filter((m: any) => m.published));
+      setAllModels(allModelsData.filter((m: any) => m.review_status === 'published' && !m.deleted_at));
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
