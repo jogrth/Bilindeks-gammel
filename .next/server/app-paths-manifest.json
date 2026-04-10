@@ -2,5 +2,6 @@
   "/api/brands/route": "app/api/brands/route.js",
   "/api/models/route": "app/api/models/route.js",
   "/page": "app/page.js",
-  "/cars/[slug]/page": "app/cars/[slug]/page.js"
+  "/login/page": "app/login/page.js",
+  "/admin/page": "app/admin/page.js"
 }
