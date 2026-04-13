@@ -1,7 +1,6 @@
 import Image from 'next/image';
 import { Container } from '@/components/ui/Container';
 import type { CarModel, ModelImage } from '@/types';
-import { getPlaceholderImage } from '@/lib/services/image-management';
 
 interface ModelHeroSectionProps {
   model: CarModel;
@@ -9,7 +8,7 @@ interface ModelHeroSectionProps {
 }
 
 export function ModelHeroSection({ model, primaryImage }: ModelHeroSectionProps) {
-  const imageUrl = primaryImage?.url || model.image_primary_url || model.image_url || getPlaceholderImage(model.brand_name || '', model.name);
+  const imageUrl = primaryImage?.url || model.image_primary_url || model.image_url || null;
   const altText = primaryImage?.alt_text || `${model.brand_name} ${model.name}`;
 
   return (
@@ -47,13 +46,19 @@ export function ModelHeroSection({ model, primaryImage }: ModelHeroSectionProps)
             </div>
 
             <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-slate-100">
-              <Image
-                src={imageUrl}
-                alt={altText}
-                fill
-                className="object-cover"
-                priority
-              />
+              {imageUrl ? (
+                <Image
+                  src={imageUrl}
+                  alt={altText}
+                  fill
+                  className="object-cover"
+                  priority
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">
+                  Bilde ikke tilgjengelig
+                </div>
+              )}
             </div>
           </div>
         </div>

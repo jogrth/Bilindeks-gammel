@@ -24,6 +24,7 @@ export async function PATCH(
   if (body.meta_title !== undefined) updateData.meta_title = body.meta_title;
   if (body.meta_description !== undefined) updateData.meta_description = body.meta_description;
   if (body.review_notes !== undefined) updateData.review_notes = body.review_notes;
+  if (body.body_content !== undefined) updateData.body_content = body.body_content;
   if (body.review_status !== undefined) {
     updateData.review_status = body.review_status;
     if (body.review_status === 'published') {

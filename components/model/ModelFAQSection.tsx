@@ -1,3 +1,7 @@
+'use client';
+
+import { useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { ModelFAQ } from '@/types';
 
 interface ModelFAQSectionProps {
@@ -5,6 +9,8 @@ interface ModelFAQSectionProps {
 }
 
 export function ModelFAQSection({ faqs }: ModelFAQSectionProps) {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
   if (faqs.length === 0) return null;
 
   return (
@@ -12,18 +18,25 @@ export function ModelFAQSection({ faqs }: ModelFAQSectionProps) {
       <h2 className="text-2xl font-bold text-slate-900 mb-6">
         Ofte stilte spørsmål
       </h2>
-      <div className="space-y-6">
-        {faqs.map((faq) => (
-          <div
-            key={faq.id}
-            className="bg-white border border-slate-200 rounded-lg p-6"
-          >
-            <h3 className="text-lg font-semibold text-slate-900 mb-3">
-              {faq.question}
-            </h3>
-            <p className="text-slate-700 leading-relaxed">
-              {faq.answer}
-            </p>
+      <div className="divide-y divide-slate-200 border-t border-slate-200">
+        {faqs.map((faq, index) => (
+          <div key={faq.id}>
+            <button
+              onClick={() => setOpenIndex(openIndex === index ? null : index)}
+              className="w-full flex items-center justify-between py-4 text-left"
+            >
+              <span className="font-medium text-slate-900 pr-4">{faq.question}</span>
+              {openIndex === index ? (
+                <ChevronUp className="w-5 h-5 text-slate-400 flex-shrink-0" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-slate-400 flex-shrink-0" />
+              )}
+            </button>
+            {openIndex === index && (
+              <div className="pb-4 text-slate-700 leading-relaxed">
+                {faq.answer}
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Container } from '@/components/ui/Container';
 import { formatPrice } from '@/lib/formatting';
+import { ArticleFAQAccordion } from '@/components/ArticleFAQAccordion';
 import type { Article, ArticleBodySection, ArticleFAQItem } from '@/types';
 
 export async function generateMetadata({
@@ -54,7 +55,6 @@ export default async function ArticlePage({
     notFound();
   }
 
-  // Fetch related models - only published ones for public safety
   const { data: relatedModels } = await supabase
     .from('article_related_models')
     .select(`
@@ -82,63 +82,45 @@ export default async function ArticlePage({
     .is('models.deleted_at', null)
     .order('display_order');
 
-  const { data: images } = await supabase
-    .from('article_images')
-    .select('*')
-    .eq('article_id', article.id)
-    .eq('is_body_image', true)
-    .order('display_order');
-
   const bodyContent = article.body_content as ArticleBodySection[] | null;
   const faqContent = article.faq_content as ArticleFAQItem[] | null;
+
+  const firstRelatedModel = relatedModels?.[0]?.models;
 
   return (
     <div className="min-h-screen bg-white">
       {article.main_image_url && (
-        <div className="relative w-full h-96 bg-slate-900">
+        <div className="relative w-full h-80 bg-slate-100">
           <Image
             src={article.main_image_url}
             alt={article.main_image_alt || article.title}
             fill
-            className="object-cover opacity-90"
+            className="object-cover"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-          <Container className="relative h-full flex items-end pb-12">
-            <div className="max-w-4xl">
-              <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-                {article.title}
-              </h1>
-              {article.ingress && (
-                <p className="text-xl text-white/90">{article.ingress}</p>
-              )}
-            </div>
-          </Container>
         </div>
       )}
 
       <Container className="py-12">
         <div className="max-w-4xl mx-auto">
-          {!article.main_image_url && (
-            <div className="mb-12">
-              <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">
-                {article.title}
-              </h1>
-              {article.ingress && (
-                <p className="text-xl text-slate-600">{article.ingress}</p>
-              )}
-            </div>
-          )}
+          <div className="mb-10">
+            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">
+              {article.title}
+            </h1>
+            {article.ingress && (
+              <p className="text-xl text-slate-600 leading-relaxed">{article.ingress}</p>
+            )}
+          </div>
 
           {bodyContent && bodyContent.length > 0 && (
-            <div className="prose prose-lg max-w-none mb-16">
+            <div className="mb-16">
               {bodyContent.map((section, idx) => (
-                <div key={idx} className="mb-12">
-                  <h2 className="text-3xl font-bold text-slate-900 mb-6">
+                <div key={idx} className="mb-10">
+                  <h2 className="text-2xl font-bold text-slate-900 mb-4">
                     {section.heading}
                   </h2>
                   <div
-                    className="text-slate-700 leading-relaxed"
+                    className="text-slate-700 leading-relaxed text-lg"
                     dangerouslySetInnerHTML={{ __html: section.content }}
                   />
                 </div>
@@ -146,9 +128,30 @@ export default async function ArticlePage({
             </div>
           )}
 
+          {firstRelatedModel && (
+            <div className="mb-12 p-6 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <div className="font-semibold text-slate-900 mb-1">
+                  {firstRelatedModel.brands?.name} {firstRelatedModel.name}
+                </div>
+                <div className="text-slate-600 text-sm">
+                  {firstRelatedModel.intro_text
+                    ? firstRelatedModel.intro_text.slice(0, 100) + '…'
+                    : 'Les mer om denne modellen'}
+                </div>
+              </div>
+              <Link
+                href={`/cars/${firstRelatedModel.slug}`}
+                className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-colors text-sm"
+              >
+                Se modell
+              </Link>
+            </div>
+          )}
+
           {relatedModels && relatedModels.length > 0 && (
             <div className="mb-16">
-              <h2 className="text-3xl font-bold text-slate-900 mb-8">
+              <h2 className="text-2xl font-bold text-slate-900 mb-8">
                 Aktuelle bilmodeller
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -178,7 +181,7 @@ export default async function ArticlePage({
                         <div className="text-sm text-slate-600 mb-1">
                           {model.brands?.name}
                         </div>
-                        <h3 className="text-2xl font-bold text-slate-900 mb-3">
+                        <h3 className="text-xl font-bold text-slate-900 mb-3">
                           {model.name}
                         </h3>
                         {rel.description && (
@@ -206,22 +209,10 @@ export default async function ArticlePage({
 
           {faqContent && faqContent.length > 0 && (
             <div className="mb-16">
-              <h2 className="text-3xl font-bold text-slate-900 mb-8">
+              <h2 className="text-2xl font-bold text-slate-900 mb-6">
                 Ofte stilte spørsmål
               </h2>
-              <div className="space-y-6">
-                {faqContent.map((faq, idx) => (
-                  <div key={idx} className="bg-slate-50 rounded-xl p-8">
-                    <h3 className="text-xl font-bold text-slate-900 mb-4">
-                      {faq.question}
-                    </h3>
-                    <div
-                      className="text-slate-700 leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: faq.answer }}
-                    />
-                  </div>
-                ))}
-              </div>
+              <ArticleFAQAccordion faqs={faqContent} />
             </div>
           )}
 

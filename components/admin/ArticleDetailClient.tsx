@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
-import { ArrowLeft, Save, Eye, EyeOff, Trash2, FileText } from 'lucide-react';
-import type { Article, ArticleImage, ArticleRelatedModel } from '@/types';
+import { ArrowLeft, Save, Eye, EyeOff, Trash2 } from 'lucide-react';
+import type { Article, ArticleBodySection, ArticleFAQItem, ArticleImage, ArticleRelatedModel } from '@/types';
 
 type Props = {
   article: Article;
@@ -32,17 +32,34 @@ export default function ArticleDetailClient({
     review_notes: article.review_notes || '',
   });
 
+  const [bodySections, setBodySections] = useState<ArticleBodySection[]>(
+    Array.isArray(article.body_content) ? (article.body_content as ArticleBodySection[]) : []
+  );
+
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSectionChange = (index: number, field: 'heading' | 'content', value: string) => {
+    setBodySections(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      const payload = {
+        ...formData,
+        body_content: bodySections.length > 0 ? bodySections : null,
+      };
+
       const response = await fetch(`/api/admin/articles/${article.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) throw new Error('Failed to save');
@@ -222,17 +239,34 @@ export default function ArticleDetailClient({
             </div>
           )}
 
-          {article.body_content && Array.isArray(article.body_content) && (
+          {bodySections.length > 0 && (
             <div className="bg-white rounded-lg border border-slate-200 p-6">
               <h2 className="text-xl font-semibold text-slate-900 mb-4">Innhold</h2>
-              <div className="space-y-4">
-                {article.body_content.map((section: any, idx: number) => (
-                  <div key={idx} className="border-l-4 border-blue-500 pl-4">
-                    <h3 className="font-semibold text-slate-900">{section.heading}</h3>
-                    <div
-                      className="text-slate-600 mt-2"
-                      dangerouslySetInnerHTML={{ __html: section.content }}
-                    />
+              <div className="space-y-6">
+                {bodySections.map((section, idx) => (
+                  <div key={idx} className="border border-slate-200 rounded-lg p-4">
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Overskrift {idx + 1}
+                      </label>
+                      <input
+                        type="text"
+                        value={section.heading}
+                        onChange={(e) => handleSectionChange(idx, 'heading', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Innhold
+                      </label>
+                      <textarea
+                        value={section.content}
+                        onChange={(e) => handleSectionChange(idx, 'content', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                        rows={6}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

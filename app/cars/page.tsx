@@ -6,6 +6,7 @@ import { Container } from '@/components/ui/Container';
 import { CarCard } from '@/components/CarCard';
 import { Button } from '@/components/ui/Button';
 import { LeadModal } from '@/components/LeadModal';
+import { ComparisonModal } from '@/components/ComparisonModal';
 import type { CarModel, CarFilters } from '@/types';
 import { BODY_TYPES, DRIVETRAINS } from '@/types';
 
@@ -16,6 +17,8 @@ function CarsPageContent() {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedModel, setSelectedModel] = useState<CarModel | null>(null);
+  const [compareModels, setCompareModels] = useState<CarModel[]>([]);
+  const [showComparison, setShowComparison] = useState(false);
 
   const [filters, setFilters] = useState<CarFilters>({
     bodyType: searchParams.get('bodyType') || undefined,
@@ -82,6 +85,21 @@ function CarsPageContent() {
     setFilters({});
     router.push('/cars');
     setTimeout(() => fetchModels(), 100);
+  };
+
+  const handleToggleCompare = (model: CarModel) => {
+    setCompareModels(prev => {
+      const exists = prev.find(m => m.id === model.id);
+      if (exists) {
+        return prev.filter(m => m.id !== model.id);
+      }
+      if (prev.length >= 3) return prev;
+      return [...prev, model];
+    });
+  };
+
+  const handleRemoveFromCompare = (modelId: string) => {
+    setCompareModels(prev => prev.filter(m => m.id !== modelId));
   };
 
   const activeFilterCount = Object.values(filters).filter(v => v !== undefined).length;
@@ -260,6 +278,9 @@ function CarsPageContent() {
                   key={model.id}
                   model={model}
                   onGetOffer={(model) => setSelectedModel(model)}
+                  showCompareCheckbox={true}
+                  isSelected={compareModels.some(m => m.id === model.id)}
+                  onToggleCompare={handleToggleCompare}
                 />
               ))}
               {models.length === 0 && (
@@ -272,6 +293,33 @@ function CarsPageContent() {
         </div>
       </Container>
 
+      {compareModels.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-lg">
+          <Container>
+            <div className="py-3 flex items-center justify-between">
+              <div className="text-sm text-slate-700">
+                <span className="font-semibold">{compareModels.length}</span> bil{compareModels.length !== 1 ? 'er' : ''} valgt for sammenligning
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setCompareModels([])}
+                  className="text-sm text-slate-500 hover:text-slate-700"
+                >
+                  Tøm
+                </button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setShowComparison(true)}
+                >
+                  Sammenlign
+                </Button>
+              </div>
+            </div>
+          </Container>
+        </div>
+      )}
+
       {selectedModel && (
         <LeadModal
           model={selectedModel}
@@ -279,6 +327,13 @@ function CarsPageContent() {
           onClose={() => setSelectedModel(null)}
         />
       )}
+
+      <ComparisonModal
+        models={compareModels}
+        isOpen={showComparison}
+        onClose={() => setShowComparison(false)}
+        onRemoveModel={handleRemoveFromCompare}
+      />
     </>
   );
 }

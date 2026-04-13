@@ -14,20 +14,20 @@ export function ModelLeadCTA({ model }: ModelLeadCTAProps) {
 
   return (
     <>
-      <div className="my-10 rounded-2xl bg-slate-900 text-white p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+      <div className="my-8 p-6 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
-          <div className="text-lg font-bold mb-1">
+          <div className="font-semibold text-slate-900 mb-1">
             Interessert i {model.brand_name} {model.name}?
           </div>
-          <div className="text-slate-400 text-sm">
-            Få et uforpliktende tilbud fra en autorisert forhandler i ditt område.
+          <div className="text-slate-600 text-sm">
+            Få et uforpliktende tilbud fra en autorisert forhandler.
           </div>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex-shrink-0 inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-900 font-semibold rounded-xl hover:bg-slate-100 transition-colors"
+          className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-colors text-sm"
         >
-          <MessageCircle className="w-5 h-5" />
+          <MessageCircle className="w-4 h-4" />
           Be om tilbud
         </button>
       </div>

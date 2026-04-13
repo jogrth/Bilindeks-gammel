@@ -1,6 +1,4 @@
 import { requireAdmin } from '@/lib/auth/helpers';
-import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
 
 export default async function AdminLayout({
   children,
@@ -10,12 +8,8 @@ export default async function AdminLayout({
   await requireAdmin();
 
   return (
-    <>
-      <Header />
-      <main className="flex-1">
-        {children}
-      </main>
-      <Footer />
-    </>
+    <div className="flex-1">
+      {children}
+    </div>
   );
 }

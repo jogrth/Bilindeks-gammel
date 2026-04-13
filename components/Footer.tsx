@@ -1,5 +1,6 @@
 import { Container } from './ui/Container';
 import { APP_NAME, APP_DOMAIN } from '@/lib/constants';
+import { FooterAdminLink } from './FooterAdminLink';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -34,9 +35,7 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a href="/login" className="hover:text-white transition-colors">
-                  Admin Innlogging
-                </a>
+                <FooterAdminLink />
               </li>
             </ul>
           </div>

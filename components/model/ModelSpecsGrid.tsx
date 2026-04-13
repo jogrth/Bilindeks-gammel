@@ -1,4 +1,4 @@
-import { Battery, Zap, Users, Package, Anchor, Gauge } from 'lucide-react';
+import { Battery, Zap, Users, Package, Anchor, Gauge, Car } from 'lucide-react';
 import type { CarModel } from '@/types';
 import {
   formatPrice,
@@ -18,42 +18,46 @@ export function ModelSpecsGrid({ model }: ModelSpecsGridProps) {
     {
       icon: Battery,
       label: 'Rekkevidde (WLTP)',
-      value: model.range_wltp_km ? formatRange(model.range_wltp_km) : null,
-      confidence: model.spec_confidence?.range_wltp_km,
+      value: model.range_wltp_km ? formatRange(model.range_wltp_km) : 'Ikke oppgitt',
+      missing: !model.range_wltp_km,
     },
     {
       icon: Zap,
       label: 'Ladehastighet',
-      value: model.charge_speed_kw ? formatChargeSpeed(model.charge_speed_kw) : null,
-      confidence: model.spec_confidence?.charge_speed_kw,
+      value: model.charge_speed_kw ? formatChargeSpeed(model.charge_speed_kw) : 'Ikke oppgitt',
+      missing: !model.charge_speed_kw,
     },
     {
       icon: Users,
       label: 'Sitteplasser',
-      value: model.seats_max ? formatSeats(model.seats_min, model.seats_max) : null,
-      confidence: model.spec_confidence?.seats_max,
+      value: model.seats_max ? formatSeats(model.seats_min, model.seats_max) : 'Ikke oppgitt',
+      missing: !model.seats_max,
     },
     {
       icon: Package,
       label: 'Bagasjerom',
-      value: model.cargo_liters ? formatCargo(model.cargo_liters) : null,
-      confidence: model.spec_confidence?.cargo_liters,
+      value: model.cargo_liters ? formatCargo(model.cargo_liters) : 'Ikke oppgitt',
+      missing: !model.cargo_liters,
     },
     {
       icon: Anchor,
       label: 'Hengervekt',
-      value: model.towing_kg ? formatTowing(model.towing_kg) : null,
-      confidence: model.spec_confidence?.towing_kg,
+      value: model.towing_kg ? formatTowing(model.towing_kg) : 'Ikke oppgitt',
+      missing: !model.towing_kg,
     },
     {
       icon: Gauge,
       label: '0-100 km/t',
-      value: model.acceleration_0_100 ? `${model.acceleration_0_100} sek` : null,
-      confidence: model.spec_confidence?.acceleration_0_100,
+      value: model.acceleration_0_100 ? `${model.acceleration_0_100} sek` : 'Ikke oppgitt',
+      missing: !model.acceleration_0_100,
     },
-  ].filter(spec => spec.value);
-
-  if (specs.length === 0) return null;
+    {
+      icon: Car,
+      label: 'Hjuldrift',
+      value: model.drive_type || 'Ikke oppgitt',
+      missing: !model.drive_type,
+    },
+  ];
 
   return (
     <div className="mb-12">
@@ -61,7 +65,6 @@ export function ModelSpecsGrid({ model }: ModelSpecsGridProps) {
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {specs.map((spec, index) => {
           const Icon = spec.icon;
-          const isLowConfidence = spec.confidence && spec.confidence < 0.7;
 
           return (
             <div
@@ -74,10 +77,9 @@ export function ModelSpecsGrid({ model }: ModelSpecsGridProps) {
                 </div>
                 <div className="flex-1">
                   <div className="text-sm text-slate-600 mb-1">{spec.label}</div>
-                  <div className="text-xl font-bold text-slate-900">{spec.value}</div>
-                  {isLowConfidence && (
-                    <div className="text-xs text-amber-600 mt-1">Estimat</div>
-                  )}
+                  <div className={`text-xl font-bold ${spec.missing ? 'text-slate-400' : 'text-slate-900'}`}>
+                    {spec.value}
+                  </div>
                 </div>
               </div>
             </div>

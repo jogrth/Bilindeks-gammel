@@ -28,7 +28,6 @@ export function EnrichedModelPage({
   similarModels,
 }: EnrichedModelPageProps) {
   const primaryImage = images.find(img => img.is_primary) || images[0];
-  const galleryImages = images.filter(img => !img.is_primary);
 
   return (
     <>
@@ -53,14 +52,14 @@ export function EnrichedModelPage({
         <div className="py-12">
           <ModelSpecsGrid model={model} />
 
+          <CarDetailClient model={model} />
+
           {trimLevels.length > 0 && (
             <ModelTrimLevelsSection
               model={model}
               trimLevels={trimLevels}
             />
           )}
-
-          <CarDetailClient model={model} />
 
           {seoSections.length > 0 && (
             <ModelSEOContent sections={seoSections} model={model} />
