@@ -1,6 +1,3 @@
-import { createClient } from '@/lib/supabase/server';
-import type { CarModel, CarFilters, ModelImage, ModelTrimLevel, ModelFAQ, ModelSEOSection } from '@/types';
-
 export async function getPublishedModels(filters?: CarFilters) {
   const supabase = await createClient();
 
@@ -13,9 +10,13 @@ export async function getPublishedModels(filters?: CarFilters) {
         slug
       )
     `)
-    .eq('review_status', 'published')
+    // 🔥 KUN dette styrer synlighet
+    .eq('published', true)
+    // 🔥 Fjern dårlige modeller
+    .not('image_primary_url', 'is', null)
+    .gte('quality_score', 50)
     .is('deleted_at', null)
-    .order('created_at', { ascending: false });
+    .order('quality_score', { ascending: false });
 
   if (filters?.brandId) {
     query = query.eq('brand_id', filters.brandId);
@@ -93,174 +94,4 @@ export async function getPublishedModels(filters?: CarFilters) {
     brand_name: model.brands?.name,
     brand_slug: model.brands?.slug,
   })) as CarModel[];
-}
-
-export async function getModelBySlug(slug: string) {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from('models')
-    .select(`
-      *,
-      brands (
-        name,
-        slug
-      )
-    `)
-    .eq('slug', slug)
-    .eq('review_status', 'published')
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  if (error || !data) {
-    return null;
-  }
-
-  return {
-    ...data,
-    brand_name: data.brands?.name,
-    brand_slug: data.brands?.slug,
-  } as CarModel;
-}
-
-export async function getSimilarModels(modelId: string) {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from('similar_models')
-    .select(`
-      similarity_score,
-      is_pinned,
-      similar_model:models!similar_models_similar_model_id_fkey (
-        *,
-        brands (
-          name,
-          slug
-        )
-      )
-    `)
-    .eq('model_id', modelId)
-    .order('is_pinned', { ascending: false })
-    .order('similarity_score', { ascending: false })
-    .limit(2);
-
-  if (error || !data) {
-    return [];
-  }
-
-  return data.map((item: any) => {
-    const model = item.similar_model;
-    const brands = model.brands;
-    return {
-      id: model.id,
-      brand_id: model.brand_id,
-      brand_name: brands?.name || '',
-      brand_slug: brands?.slug || '',
-      name: model.name,
-      slug: model.slug,
-      body_type: model.body_type,
-      drivetrain: model.drivetrain,
-      drive_type: model.drive_type,
-      seats_min: model.seats_min,
-      seats_max: model.seats_max,
-      cargo_liters: model.cargo_liters,
-      towing_kg: model.towing_kg,
-      range_wltp_km: model.range_wltp_km,
-      charge_speed_kw: model.charge_speed_kw,
-      price_from_nok: model.price_from_nok,
-      image_url: model.image_url,
-      intro_text: model.intro_text,
-      source_url: model.source_url,
-      status: model.status,
-      confidence_score: model.confidence_score,
-      published: model.published,
-      created_at: model.created_at,
-      updated_at: model.updated_at,
-    } as CarModel;
-  });
-}
-
-export async function getAllBrands() {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from('brands')
-    .select('*')
-    .order('name');
-
-  if (error) {
-    console.error('Error fetching brands:', error);
-    return [];
-  }
-
-  return data || [];
-}
-
-export async function getModelImages(modelId: string): Promise<ModelImage[]> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from('model_images')
-    .select('*')
-    .eq('model_id', modelId)
-    .order('is_primary', { ascending: false })
-    .order('display_order', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching model images:', error);
-    return [];
-  }
-
-  return data || [];
-}
-
-export async function getModelTrimLevels(modelId: string): Promise<ModelTrimLevel[]> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from('model_trim_levels')
-    .select('*')
-    .eq('model_id', modelId)
-    .order('display_order', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching trim levels:', error);
-    return [];
-  }
-
-  return data || [];
-}
-
-export async function getModelFAQs(modelId: string): Promise<ModelFAQ[]> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from('model_faqs')
-    .select('*')
-    .eq('model_id', modelId)
-    .order('display_order', { ascending: true});
-
-  if (error) {
-    console.error('Error fetching FAQs:', error);
-    return [];
-  }
-
-  return data || [];
-}
-
-export async function getModelSEOSections(modelId: string): Promise<ModelSEOSection[]> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from('model_seo_sections')
-    .select('*')
-    .eq('model_id', modelId)
-    .order('display_order', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching SEO sections:', error);
-    return [];
-  }
-
-  return data || [];
 }
