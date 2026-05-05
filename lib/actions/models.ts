@@ -3,15 +3,37 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
+function parseOptionalNumber(value: FormDataEntryValue | null) {
+  if (value === null || value === '') return null;
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function parseOptionalString(value: FormDataEntryValue | null) {
+  if (value === null) return null;
+  const text = String(value).trim();
+  return text.length > 0 ? text : null;
+}
+
+function revalidateModelPaths(modelId?: string) {
+  if (modelId) revalidatePath(`/admin/models/${modelId}`);
+  revalidatePath('/admin/models');
+  revalidatePath('/cars');
+}
+
 export async function updateModelData(modelId: string, formData: FormData) {
   const supabase = await createClient();
 
-  const updates: any = {};
+  const updates: Record<string, unknown> = {};
 
-  const fields = [
+  const textFields = [
     'intro_text',
     'body_type',
     'drivetrain',
+    'drive_type',
+  ];
+
+  const numberFields = [
     'range_wltp_km',
     'price_from_nok',
     'cargo_liters',
@@ -21,17 +43,31 @@ export async function updateModelData(modelId: string, formData: FormData) {
     'charge_speed_kw',
   ];
 
-  fields.forEach((field) => {
-    const value = formData.get(field);
-    if (value !== null && value !== '') {
-      if (field === 'range_wltp_km' || field === 'price_from_nok' || field === 'cargo_liters' ||
-          field === 'towing_kg' || field === 'seats_min' || field === 'seats_max' || field === 'charge_speed_kw') {
-        updates[field] = parseInt(value as string);
-      } else {
-        updates[field] = value;
-      }
+  textFields.forEach((field) => {
+    if (formData.has(field)) {
+      updates[field] = parseOptionalString(formData.get(field));
     }
   });
+
+  numberFields.forEach((field) => {
+    if (formData.has(field)) {
+      updates[field] = parseOptionalNumber(formData.get(field));
+    }
+  });
+
+  // Viktig: frontend/listing bruker image_primary_url som krav for synlighet.
+  // Admin kan fortsatt sende image_url, men vi normaliserer alltid til begge felt.
+  const submittedImageUrl = parseOptionalString(
+    formData.get('image_primary_url') ?? formData.get('image_url'),
+  );
+
+  if (submittedImageUrl !== null) {
+    updates.image_primary_url = submittedImageUrl;
+    updates.image_url = submittedImageUrl;
+  } else if (formData.has('image_primary_url') || formData.has('image_url')) {
+    updates.image_primary_url = null;
+    updates.image_url = null;
+  }
 
   const { error } = await supabase
     .from('models')
@@ -42,9 +78,28 @@ export async function updateModelData(modelId: string, formData: FormData) {
     throw new Error(`Failed to update model: ${error.message}`);
   }
 
-  revalidatePath(`/admin/models/${modelId}`);
-  revalidatePath('/admin/models');
-  revalidatePath('/cars');
+  if (submittedImageUrl) {
+    await supabase
+      .from('model_images')
+      .update({ is_primary: false })
+      .eq('model_id', modelId);
+
+    await supabase
+      .from('model_images')
+      .upsert(
+        {
+          model_id: modelId,
+          url: submittedImageUrl,
+          alt_text: parseOptionalString(formData.get('image_alt_text')) || 'Bilmodell',
+          is_primary: true,
+          display_order: 0,
+          source: 'manual',
+        },
+        { onConflict: 'model_id,url' },
+      );
+  }
+
+  revalidateModelPaths(modelId);
   return { success: true };
 }
 
@@ -204,61 +259,92 @@ export async function getModelByIdForAdmin(id: string) {
 export async function toggleModelPublished(modelId: string, published: boolean) {
   const supabase = await createClient();
 
-  const review_status = published ? 'published' : 'draft';
-
   const { error } = await supabase
     .from('models')
-    .update({ review_status })
+    .update({
+      published,
+      review_status: published ? 'published' : 'draft',
+      status: published ? 'published' : 'draft',
+    })
     .eq('id', modelId);
 
   if (error) {
     throw new Error(`Failed to toggle published status: ${error.message}`);
   }
 
-  revalidatePath('/admin/models');
-  revalidatePath('/cars');
+  revalidateModelPaths(modelId);
   return { success: true };
 }
 
 export async function createModel(formData: FormData) {
   const supabase = await createClient();
 
-  const name = formData.get('name') as string;
-  const brandId = formData.get('brand_id') as string;
-  const slug = formData.get('slug') as string || name.toLowerCase().replace(/\s+/g, '-');
+  const name = parseOptionalString(formData.get('name'));
+  const brandId = parseOptionalString(formData.get('brand_id'));
 
-  const model: any = {
+  if (!name) throw new Error('Model name is required');
+  if (!brandId) throw new Error('Brand is required');
+
+  const rawSlug = parseOptionalString(formData.get('slug'));
+  const slug = rawSlug || name.toLowerCase().replace(/\s+/g, '-');
+  const isPublished = formData.get('published') === 'true';
+  const imageUrl = parseOptionalString(formData.get('image_primary_url') ?? formData.get('image_url'));
+
+  const model: Record<string, unknown> = {
     name,
     brand_id: brandId,
     slug,
-    body_type: formData.get('body_type') as string || null,
-    drivetrain: formData.get('drivetrain') as string || null,
-    drive_type: formData.get('drive_type') as string || null,
-    intro_text: formData.get('intro_text') as string || null,
-    image_url: formData.get('image_url') as string || null,
-    review_status: formData.get('published') === 'true' ? 'published' : 'draft',
-    status: formData.get('published') === 'true' ? 'published' : 'draft',
+    body_type: parseOptionalString(formData.get('body_type')),
+    drivetrain: parseOptionalString(formData.get('drivetrain')),
+    drive_type: parseOptionalString(formData.get('drive_type')),
+    intro_text: parseOptionalString(formData.get('intro_text')),
+    image_url: imageUrl,
+    image_primary_url: imageUrl,
+    published: isPublished,
+    review_status: isPublished ? 'published' : 'draft',
+    status: isPublished ? 'published' : 'draft',
   };
 
-  const numFields = ['seats_min', 'seats_max', 'cargo_liters', 'towing_kg', 'range_wltp_km', 'charge_speed_kw', 'price_from_nok'];
+  const numFields = [
+    'seats_min',
+    'seats_max',
+    'cargo_liters',
+    'towing_kg',
+    'range_wltp_km',
+    'charge_speed_kw',
+    'price_from_nok',
+  ];
+
   numFields.forEach((field) => {
-    const value = formData.get(field);
-    if (value && value !== '') {
-      model[field] = parseInt(value as string);
-    }
+    const parsed = parseOptionalNumber(formData.get(field));
+    if (parsed !== null) model[field] = parsed;
   });
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('models')
-    .insert([model]);
+    .insert([model])
+    .select('id')
+    .single();
 
   if (error) {
     throw new Error(`Failed to create model: ${error.message}`);
   }
 
-  revalidatePath('/admin/models');
-  revalidatePath('/cars');
-  return { success: true };
+  if (imageUrl && data?.id) {
+    await supabase
+      .from('model_images')
+      .insert({
+        model_id: data.id,
+        url: imageUrl,
+        alt_text: name,
+        is_primary: true,
+        display_order: 0,
+        source: 'manual',
+      });
+  }
+
+  revalidateModelPaths(data?.id);
+  return { success: true, id: data?.id };
 }
 
 export async function deleteModel(modelId: string) {
@@ -268,7 +354,9 @@ export async function deleteModel(modelId: string) {
     .from('models')
     .update({
       deleted_at: new Date().toISOString(),
+      published: false,
       review_status: 'unpublished',
+      status: 'unpublished',
     })
     .eq('id', modelId);
 
@@ -276,8 +364,7 @@ export async function deleteModel(modelId: string) {
     throw new Error(`Failed to delete model: ${error.message}`);
   }
 
-  revalidatePath('/admin/models');
-  revalidatePath('/cars');
+  revalidateModelPaths(modelId);
   return { success: true };
 }
 
@@ -286,15 +373,18 @@ export async function unpublishModel(modelId: string) {
 
   const { error } = await supabase
     .from('models')
-    .update({ review_status: 'unpublished' })
+    .update({
+      published: false,
+      review_status: 'unpublished',
+      status: 'unpublished',
+    })
     .eq('id', modelId);
 
   if (error) {
     throw new Error(`Failed to unpublish model: ${error.message}`);
   }
 
-  revalidatePath('/admin/models');
-  revalidatePath('/cars');
+  revalidateModelPaths(modelId);
   return { success: true };
 }
 
@@ -305,7 +395,9 @@ export async function restoreModel(modelId: string) {
     .from('models')
     .update({
       deleted_at: null,
+      published: false,
       review_status: 'draft',
+      status: 'draft',
     })
     .eq('id', modelId);
 
@@ -313,7 +405,6 @@ export async function restoreModel(modelId: string) {
     throw new Error(`Failed to restore model: ${error.message}`);
   }
 
-  revalidatePath('/admin/models');
-  revalidatePath('/cars');
+  revalidateModelPaths(modelId);
   return { success: true };
 }
